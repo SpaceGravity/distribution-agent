@@ -1,0 +1,9 @@
+{
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "distribution-agent": "src/index.ts:graph"
+  },
+  "env": ".env"
+}
