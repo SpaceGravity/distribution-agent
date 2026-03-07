@@ -1,5 +1,5 @@
 // Integration test — runs the Distribution Agent end-to-end
-// Usage: pnpm tsx --env-file=.env src/distribution-agent/test-run.ts
+// Usage: pnpm tsx --env-file=.env src/test-run.ts
 
 import { graph } from './index.js';
 import { Command } from '@langchain/langgraph';
@@ -10,11 +10,11 @@ type GraphResult = Record<string, any>;
 
 const BUSINESS_FILE = resolve(
   import.meta.dirname ?? '.',
-  '../../Distribution_Agent/business.md'
+  '../docs/business.md'
 );
 const TONE_FILE = resolve(
   import.meta.dirname ?? '.',
-  '../../Distribution_Agent/tone_examples.md'
+  '../docs/tone_examples.md'
 );
 
 async function run() {

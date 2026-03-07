@@ -19,7 +19,8 @@ export async function understandBusiness(
 
   // Validate and read business file
   const absPath = resolve(filePath);
-  if (absPath.includes('..')) {
+  const allowedRoot = resolve('.');
+  if (!absPath.startsWith(allowedRoot)) {
     throw new Error('Path traversal detected in business file path.');
   }
   if (!absPath.endsWith('.md')) {

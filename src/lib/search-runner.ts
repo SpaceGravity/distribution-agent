@@ -114,7 +114,7 @@ function extractAuthor(platform: string, item: RawBaseItem): string {
     case 'tiktok':
     case 'instagram':
       return String(raw.author_name ?? 'unknown');
-    case 'hackernews':
+    case 'hn':
       return String(raw.author ?? 'unknown');
     default:
       return 'unknown';
@@ -173,18 +173,6 @@ function normalizeItem(
   };
 }
 
-// Platform keys in the report JSON that map to our platform names
-const PLATFORM_KEYS: Record<string, string> = {
-  reddit: 'reddit',
-  x: 'x',
-  web: 'web',
-  youtube: 'youtube',
-  tiktok: 'tiktok',
-  instagram: 'instagram',
-  hackernews: 'hn',
-  hn: 'hackernews', // reverse mapping: our platform name -> report key
-};
-
 /**
  * Map our platform names (used in --search flag) to the JSON report keys.
  * E.g., 'hn' -> 'hackernews' in the JSON output.
@@ -227,7 +215,7 @@ export async function searchPlatforms(
   if (depth === 'quick') args.push('--quick');
   if (depth === 'deep') args.push('--deep');
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     execFile(
       'python3',
       args,
@@ -244,7 +232,7 @@ export async function searchPlatforms(
           if (stderr) {
             console.error(`[search-runner] stderr: ${stderr}`);
           }
-          resolve([]);
+          reject(new Error(`Search failed: ${error.message}`));
           return;
         }
 
