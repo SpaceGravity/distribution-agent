@@ -80,6 +80,16 @@ export const ReplyDraftSchema = z.object({
 
 export type ReplyDraft = z.infer<typeof ReplyDraftSchema>;
 
+export const TargetRejectionNoteSchema = z.object({
+  targetId: z.string(),
+  targetPlatform: z.string(),
+  targetUrl: z.string(),
+  targetTitle: z.string(),
+  reason: z.string(),
+  rejectedAt: z.string(),
+});
+export type TargetRejectionNote = z.infer<typeof TargetRejectionNoteSchema>;
+
 export const PostedReplySchema = z.object({
   targetId: z.string(),
   targetUrl: z.string(),
@@ -139,6 +149,15 @@ export const DistributionStateSchema = z.object({
 
   // User help (after 5 failures)
   userGuidance: z.string().optional(),
+
+  // Target rejection notes (feedback on unsuitable targets)
+  targetRejectionNotes: z.array(TargetRejectionNoteSchema).register(registry, {
+    reducer: {
+      fn: (left: TargetRejectionNote[], right: TargetRejectionNote[]) =>
+        left.concat(right),
+    },
+    default: () => [],
+  }),
 
   // Approved targets for reply generation
   approvedTargets: z.array(SearchResultItemSchema).register(registry, {

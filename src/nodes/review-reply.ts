@@ -1,8 +1,9 @@
 // reviewReply node — One-by-one sequential review of reply drafts
-// Uses interrupt() for each draft: approve, edit, reject (with feedback), or skip
+// Uses interrupt() for each draft: approve, edit, reject_reply, reject_target, or skip
 
 import { interrupt, Command } from '@langchain/langgraph';
 import type { DistributionState } from '../state.js';
+import type { TargetRejectionNote } from '../state.js';
 import { llm } from '../lib/llm.js';
 import { replyRegenerationPrompt } from '../lib/prompts.js';
 
@@ -45,7 +46,7 @@ export async function reviewReply(
       url: draft.targetUrl,
     },
     proposedReply: draft.draft,
-    options: 'approve | edit | reject | skip',
+    options: 'approve | edit | reject_reply | reject_target | skip',
   });
 
   const action =
@@ -92,10 +93,39 @@ export async function reviewReply(
     });
   }
 
-  // Handle: reject (regenerate with feedback)
+  // Handle: reject_target (target post is unsuitable — skip and record reason)
+  if (action === 'reject_target' || action.startsWith('reject_target:')) {
+    const reason =
+      typeof userDecision === 'string'
+        ? userDecision.replace(/^reject_target:\s*/i, '').trim() || 'No reason provided'
+        : userDecision.reason ?? 'No reason provided';
+
+    console.log(`[reviewReply] Target rejected: ${reason}`);
+
+    const rejectionNote: TargetRejectionNote = {
+      targetId: draft.targetId,
+      targetPlatform: draft.targetPlatform,
+      targetUrl: draft.targetUrl,
+      targetTitle: draft.targetTitle,
+      reason,
+      rejectedAt: new Date().toISOString(),
+    };
+
+    const updatedDraft = { ...draft, status: 'skipped' as const };
+    return new Command({
+      update: {
+        replyDrafts: [updatedDraft],
+        targetRejectionNotes: [rejectionNote],
+        currentReviewIndex: currentReviewIndex + 1,
+      },
+      goto: 'reviewReply',
+    });
+  }
+
+  // Handle: reject_reply / reject (regenerate with feedback — backward compatible)
   const feedback =
     typeof userDecision === 'string'
-      ? userDecision.replace(/^reject:\s*/i, '')
+      ? userDecision.replace(/^reject(?:_reply)?:\s*/i, '')
       : userDecision.feedback ?? 'Please try a different approach.';
 
   console.log(`[reviewReply] Regenerating with feedback: ${feedback}`);

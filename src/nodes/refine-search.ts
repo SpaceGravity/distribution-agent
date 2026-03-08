@@ -23,7 +23,10 @@ export async function refineSearch(
   const prompt = criteriaGenerationPrompt(
     state.businessUnderstanding,
     state.evaluationHistory,
-    state.userGuidance ?? undefined
+    state.userGuidance ?? undefined,
+    state.targetRejectionNotes.length > 0
+      ? state.targetRejectionNotes
+      : undefined
   );
 
   const criteria = await structuredLlm.invoke(prompt);

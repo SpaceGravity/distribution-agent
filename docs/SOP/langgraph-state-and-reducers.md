@@ -77,5 +77,14 @@ export const MySchema = z.object({ ... });
 export type MyState = z.infer<typeof MySchema>;
 ```
 
+### Append for feedback/history arrays (targetRejectionNotes, evaluationHistory)
+```ts
+targetRejectionNotes: z.array(TargetRejectionNoteSchema).register(registry, {
+  reducer: { fn: (left, right) => left.concat(right) },
+  default: () => [],
+}),
+```
+These accumulate across the session and are injected into prompts as context.
+
 ### Command updates go through reducers
 When a node returns `new Command({ update: { items: [newItem] } })`, the `items` array goes through the reducer — it does NOT replace the array. This is by design. If the reducer is `concat`, it appends. If it's dedup, it merges.

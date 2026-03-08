@@ -45,6 +45,36 @@ function assert(name: string, condition: boolean, detail: string) {
 }
 ```
 
+### Testing reject_target
+To test target rejection in the advanced test:
+```ts
+// Send reject_target during review interrupt
+result = await graph.invoke(
+  new Command({
+    resume: {
+      action: 'reject_target',
+      reason: 'this post is about personal finance, not cloud costs',
+    },
+  }),
+  config
+);
+
+// Verify rejection was recorded
+const state = await graph.getState(config);
+assert(state.values.targetRejectionNotes.length > 0);
+assert(state.values.targetRejectionNotes[0].reason.includes('personal finance'));
+```
+
+### Testing backward compatibility
+Bare `reject` (without `_reply` suffix) must still work:
+```ts
+result = await graph.invoke(
+  new Command({ resume: 'reject: too generic' }),
+  config
+);
+// Should regenerate the reply, not crash
+```
+
 ## Common bugs and fixes
 
 ### Graph stops silently after a node

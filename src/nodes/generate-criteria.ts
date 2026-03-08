@@ -20,7 +20,10 @@ export async function generateCriteria(
     state.evaluationHistory.length > 0
       ? state.evaluationHistory
       : undefined,
-    state.userGuidance ?? undefined
+    state.userGuidance ?? undefined,
+    state.targetRejectionNotes.length > 0
+      ? state.targetRejectionNotes
+      : undefined
   );
 
   const criteria = await structuredLlm.invoke(prompt);

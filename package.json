@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev": "pnpx @langchain/langgraph-cli dev",
+    "dev": "langgraphjs dev",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts",
     "typecheck": "tsc --noEmit",

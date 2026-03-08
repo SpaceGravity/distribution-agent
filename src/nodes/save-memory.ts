@@ -24,6 +24,7 @@ interface StrategyRecord {
   totalResultsFound: number;
   repliesGenerated: number;
   repliesPosted: number;
+  targetRejectionPatterns?: string[];
 }
 
 export async function saveMemory(
@@ -47,6 +48,12 @@ export async function saveMemory(
     totalResultsFound: state.searchResults.length,
     repliesGenerated: state.replyDrafts.length,
     repliesPosted: state.postedReplies.length,
+    targetRejectionPatterns:
+      state.targetRejectionNotes.length > 0
+        ? state.targetRejectionNotes.map(
+            (n) => `[${n.targetPlatform}] ${n.reason}`
+          )
+        : undefined,
   };
 
   // Persist to local file

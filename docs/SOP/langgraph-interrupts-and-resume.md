@@ -67,6 +67,7 @@ export async function reviewReply(state: State): Promise<Command> {
     action: 'Review item',
     item: items[currentIndex],
     progress: `${currentIndex + 1} of ${items.length}`,
+    options: 'approve | edit | reject_reply | reject_target | skip',
   });
 
   if (response.action === 'approve') {
@@ -76,8 +77,26 @@ export async function reviewReply(state: State): Promise<Command> {
     });
   }
 
-  if (response.action === 'reject') {
-    // Regenerate and loop back to same index
+  // reject_target — the target post itself is unsuitable
+  if (response.action === 'reject_target') {
+    const rejectionNote = {
+      targetId: item.targetId,
+      reason: response.reason,
+      rejectedAt: new Date().toISOString(),
+      // ...other target fields
+    };
+    return new Command({
+      update: {
+        items: [{ ...item, status: 'skipped' }],
+        targetRejectionNotes: [rejectionNote], // append reducer
+        currentIndex: currentIndex + 1,
+      },
+      goto: 'reviewReply',
+    });
+  }
+
+  // reject_reply — regenerate with feedback (backward compat: bare 'reject' works too)
+  if (response.action === 'reject_reply' || response.action === 'reject') {
     const newItem = await regenerate(items[currentIndex], response.feedback);
     return new Command({
       update: { items: [newItem] }, // goes through upsert reducer

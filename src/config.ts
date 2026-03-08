@@ -5,7 +5,7 @@ import { resolve } from 'path';
 
 export const CONFIG = {
   // LLM settings
-  ANTHROPIC_MODEL: 'claude-sonnet-4-20250514',
+  ANTHROPIC_MODEL: 'claude-sonnet-4-6',
 
   // Search settings
   MAX_ITERATIONS: parseInt(

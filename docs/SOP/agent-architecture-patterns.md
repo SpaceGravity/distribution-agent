@@ -133,6 +133,26 @@ const pool = state.approvedTargets.length > 0
   : state.searchResults;
 ```
 
+## Target rejection feedback loop
+
+When users reject a target post (not just the reply), the rejection reason feeds back into the search pipeline:
+
+```
+User rejects target → TargetRejectionNote stored in state
+                          ↓
+                    criteriaGenerationPrompt() includes <target_rejection_history>
+                          ↓
+                    evaluationPrompt() includes <rejected_targets>
+                          ↓
+                    save-memory.ts persists as targetRejectionPatterns
+```
+
+Key design decisions:
+- Rejection notes use append reducer (accumulate, never overwrite)
+- Notes are injected as XML blocks into prompts (not embedded in system instructions)
+- The `reject_target` action marks the draft as `skipped` (reuses existing status enum)
+- Backward compat: bare `reject` still works as `reject_reply`
+
 ## Memory / strategy persistence
 
 For cross-session learning, save winning strategies to disk:

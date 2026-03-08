@@ -5,6 +5,7 @@ import type {
   BusinessUnderstanding,
   SearchResultItem,
   EvaluationRecord,
+  TargetRejectionNote,
 } from '../state.js';
 
 /**
@@ -47,7 +48,8 @@ Return your analysis as structured JSON matching this schema:
 export function criteriaGenerationPrompt(
   businessSummary: BusinessUnderstanding,
   evaluationHistory?: EvaluationRecord[],
-  userGuidance?: string
+  userGuidance?: string,
+  targetRejectionNotes?: TargetRejectionNote[]
 ): string {
   let prompt = `You are a growth marketing expert. Generate search criteria to find potential customers for a product on social media and community platforms.
 
@@ -90,6 +92,21 @@ ${userGuidance}
 </user_guidance>`;
   }
 
+  // Include target rejection history so the LLM avoids similar content
+  if (targetRejectionNotes && targetRejectionNotes.length > 0) {
+    prompt += `
+
+<target_rejection_history>
+The user has previously rejected the following targets as unsuitable. Adjust search criteria to avoid finding similar content.
+
+${targetRejectionNotes
+  .map(
+    (note) => `- [${note.targetPlatform}] "${note.targetTitle}" — Reason: ${note.reason}`
+  )
+  .join('\n')}
+</target_rejection_history>`;
+  }
+
   prompt += `
 
 Generate search criteria that will find posts, comments, and threads where potential customers are discussing problems this product solves.
@@ -121,7 +138,8 @@ export function evaluationPrompt(
   businessUnderstanding: BusinessUnderstanding,
   results: SearchResultItem[],
   evaluationHistory: EvaluationRecord[],
-  iterationCount: number
+  iterationCount: number,
+  targetRejectionNotes?: TargetRejectionNote[]
 ): string {
   // Take top 30 results by score for the evaluation
   const topResults = results
@@ -175,6 +193,21 @@ ${evaluationHistory
   )
   .join('\n\n')}
 </evaluation_history>`;
+  }
+
+  // Include rejected targets so the LLM excludes similar posts
+  if (targetRejectionNotes && targetRejectionNotes.length > 0) {
+    prompt += `
+
+<rejected_targets>
+The user has previously rejected these targets as unsuitable. Exclude similar posts from topResultIds.
+
+${targetRejectionNotes
+  .map(
+    (note) => `- [${note.targetPlatform}] "${note.targetTitle}" — Reason: ${note.reason}`
+  )
+  .join('\n')}
+</rejected_targets>`;
   }
 
   prompt += `

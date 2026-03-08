@@ -113,3 +113,43 @@ ${userFeedback}
 
 Rewrite the reply addressing the feedback.
 ```
+
+## Injecting rejection context into prompts
+
+When users reject targets (not just replies), record why and inject into future prompts:
+
+### In criteriaGenerationPrompt — avoid similar search results
+```ts
+export function criteriaGenerationPrompt(
+  business, evaluationHistory?, userGuidance?, targetRejectionNotes?
+) {
+  // ... existing prompt ...
+  if (targetRejectionNotes?.length) {
+    prompt += `
+<target_rejection_history>
+The user has previously rejected the following targets as unsuitable.
+Adjust search criteria to avoid finding similar content.
+${notes.map(n => `- [${n.targetPlatform}] "${n.targetTitle}" — Reason: ${n.reason}`).join('\n')}
+</target_rejection_history>`;
+  }
+}
+```
+
+### In evaluationPrompt — exclude similar posts
+```ts
+export function evaluationPrompt(
+  business, results, history, iteration, targetRejectionNotes?
+) {
+  // ... existing prompt ...
+  if (targetRejectionNotes?.length) {
+    prompt += `
+<rejected_targets>
+The user has previously rejected these targets as unsuitable.
+Exclude similar posts from topResultIds.
+${notes.map(n => `- [${n.targetPlatform}] "${n.targetTitle}" — Reason: ${n.reason}`).join('\n')}
+</rejected_targets>`;
+  }
+}
+```
+
+This creates a feedback loop: target rejections influence both what gets searched for and what gets approved.
