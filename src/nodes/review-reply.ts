@@ -144,7 +144,8 @@ export async function reviewReply(
     draft.draft,
     feedback,
     state.businessUnderstanding!,
-    state.toneExamples
+    state.toneExamples,
+    state.platformToneMap
   );
 
   const response = await llm.invoke(prompt);

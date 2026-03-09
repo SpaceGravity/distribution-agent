@@ -116,6 +116,7 @@ export const DistributionStateSchema = z.object({
   // Business understanding
   businessUnderstanding: BusinessUnderstandingSchema.optional(),
   toneExamples: z.string().optional(),
+  platformToneMap: z.record(z.string(), z.string()).optional(),
 
   // Search
   searchCriteria: SearchCriteriaSchema.optional(),

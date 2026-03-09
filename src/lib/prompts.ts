@@ -229,20 +229,21 @@ Return your evaluation as structured JSON matching this schema:
 
 /**
  * Prompt for generating a reply to a specific social media post.
- * Enforces human founder tone, no emojis, max 4 sentences.
+ * Enforces human founder tone with platform-specific rules and examples.
  */
 export function replyGenerationPrompt(
   target: SearchResultItem,
   businessUnderstanding: BusinessUnderstanding,
-  toneExamples?: string
+  toneExamples?: string,
+  platformToneMap?: Record<string, string>
 ): string {
+  const platformRules = platformToneMap?.[target.platform];
+
   let prompt = `You are a startup founder writing a reply to a social media post. Your goal is to genuinely help this person while mentioning your product as a potential solution.
 
 <constraints>
 - Your reply MUST be directly relevant to the original post content
-- Be friendly and enthusiastic
 - NO emojis whatsoever
-- Maximum 4 sentences (use fewer if the point is clear)
 - Write in a natural human founder tone -- it must NOT feel AI-generated
 - Explain specifically how the product could help with their stated problem
 - Do not be generic or vague
@@ -263,14 +264,27 @@ Value Proposition: ${businessUnderstanding.valueProposition}
 Key Features: ${businessUnderstanding.keyFeatures.join(', ')}${businessUnderstanding.productLinks?.website ? `\nWebsite: ${businessUnderstanding.productLinks.website}` : ''}${businessUnderstanding.productLinks?.github ? `\nGitHub: ${businessUnderstanding.productLinks.github}` : ''}
 </your_product>`;
 
-  // Include tone examples as few-shot references
-  if (toneExamples) {
+  // Include platform-specific rules + examples if available
+  if (platformRules) {
+    prompt += `
+
+<platform_rules_and_examples>
+Follow these rules and match the tone of these examples for ${target.platform}:
+${platformRules}
+</platform_rules_and_examples>`;
+  } else if (toneExamples) {
+    // Fall back to generic tone examples if platform not found
     prompt += `
 
 <tone_examples>
 Here are examples of the tone and style to match:
 ${toneExamples}
-</tone_examples>`;
+</tone_examples>
+
+<fallback_constraints>
+- Maximum 4 sentences (use fewer if the point is clear)
+- Be friendly and enthusiastic
+</fallback_constraints>`;
   }
 
   prompt += `
@@ -289,15 +303,16 @@ export function replyRegenerationPrompt(
   previousDraft: string,
   userFeedback: string,
   businessUnderstanding: BusinessUnderstanding,
-  toneExamples?: string
+  toneExamples?: string,
+  platformToneMap?: Record<string, string>
 ): string {
+  const platformRules = platformToneMap?.[target.platform];
+
   let prompt = `You are a startup founder rewriting a reply to a social media post. Your previous draft was rejected and you need to improve it based on the feedback.
 
 <constraints>
 - Your reply MUST be directly relevant to the original post content
-- Be friendly and enthusiastic
 - NO emojis whatsoever
-- Maximum 4 sentences (use fewer if the point is clear)
 - Write in a natural human founder tone -- it must NOT feel AI-generated
 - Explain specifically how the product could help with their stated problem
 - Do not be generic or vague
@@ -326,14 +341,27 @@ ${previousDraft}
 ${userFeedback}
 </user_feedback>`;
 
-  // Include tone examples as few-shot references
-  if (toneExamples) {
+  // Include platform-specific rules + examples if available
+  if (platformRules) {
+    prompt += `
+
+<platform_rules_and_examples>
+Follow these rules and match the tone of these examples for ${target.platform}:
+${platformRules}
+</platform_rules_and_examples>`;
+  } else if (toneExamples) {
+    // Fall back to generic tone examples if platform not found
     prompt += `
 
 <tone_examples>
 Here are examples of the tone and style to match:
 ${toneExamples}
-</tone_examples>`;
+</tone_examples>
+
+<fallback_constraints>
+- Maximum 4 sentences (use fewer if the point is clear)
+- Be friendly and enthusiastic
+</fallback_constraints>`;
   }
 
   prompt += `

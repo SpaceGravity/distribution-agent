@@ -72,11 +72,6 @@ interface RawHackerNewsItem extends RawBaseItem {
   author?: string;
 }
 
-// Polymarket: title, question, url
-interface RawPolymarketItem extends RawBaseItem {
-  question?: string;
-}
-
 // Top-level JSON structure emitted by last30days --emit=json
 interface RawReport {
   reddit?: RawRedditItem[];
@@ -86,7 +81,6 @@ interface RawReport {
   tiktok?: RawTikTokItem[];
   instagram?: RawInstagramItem[];
   hackernews?: RawHackerNewsItem[];
-  polymarket?: RawPolymarketItem[];
   [key: string]: unknown;
 }
 
@@ -139,8 +133,6 @@ function extractText(platform: string, item: RawBaseItem): string {
   if (raw.caption_snippet && typeof raw.caption_snippet === 'string') {
     return raw.caption_snippet;
   }
-  // Polymarket uses question
-  if (raw.question && typeof raw.question === 'string') return raw.question;
   // Last resort: use why_relevant or empty
   return String(raw.why_relevant ?? '');
 }
@@ -249,7 +241,6 @@ export async function searchPlatforms(
             'tiktok',
             'instagram',
             'hackernews',
-            'polymarket',
           ];
 
           for (const key of platformArrayKeys) {

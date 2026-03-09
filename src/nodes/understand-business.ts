@@ -39,14 +39,21 @@ export async function understandBusiness(
     `[understandBusiness] Read business file: ${absPath} (${businessContent.length} chars)`
   );
 
-  // Read tone examples if provided
+  // Read tone examples if provided and parse into per-platform map
   let toneExamples: string | undefined;
+  let platformToneMap: Record<string, string> | undefined;
   if (state.toneFilePath) {
     try {
       const tonePath = resolve(state.toneFilePath);
       toneExamples = readFileSync(tonePath, 'utf-8');
       console.log(
         `[understandBusiness] Read tone file: ${tonePath} (${toneExamples.length} chars)`
+      );
+
+      // Parse into per-platform sections keyed by "## <platform>" headers
+      platformToneMap = parseToneFileIntoPlatformMap(toneExamples);
+      console.log(
+        `[understandBusiness] Parsed tone map for platforms: ${Object.keys(platformToneMap).join(', ')}`
       );
     } catch (err) {
       console.warn(`[understandBusiness] Could not read tone file: ${err}`);
@@ -67,5 +74,36 @@ export async function understandBusiness(
   return {
     businessUnderstanding: understanding,
     toneExamples,
+    platformToneMap,
   };
+}
+
+/**
+ * Parse a tone examples file into a Record<string, string> keyed by platform.
+ * Splits on `## <platform>` headers and stores each section's content.
+ */
+function parseToneFileIntoPlatformMap(
+  content: string
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  const sections = content.split(/^## /m);
+
+  for (const section of sections) {
+    const trimmed = section.trim();
+    if (!trimmed) continue;
+
+    // First line is the platform name, rest is the content
+    const newlineIdx = trimmed.indexOf('\n');
+    if (newlineIdx === -1) continue;
+
+    const platform = trimmed.slice(0, newlineIdx).trim().toLowerCase();
+    const body = trimmed.slice(newlineIdx + 1).trim();
+
+    // Skip the file title section (starts with "# Platform Reply Rules")
+    if (platform.startsWith('#') || !body) continue;
+
+    map[platform] = body;
+  }
+
+  return map;
 }

@@ -81,7 +81,8 @@ async function generateSingleReply(
   const prompt = replyGenerationPrompt(
     target,
     state.businessUnderstanding!,
-    state.toneExamples
+    state.toneExamples,
+    state.platformToneMap
   );
 
   const response = await llm.invoke(prompt);
