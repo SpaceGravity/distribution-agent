@@ -84,3 +84,27 @@ START -> getInput -> understandBusiness -> generateCriteria -> search -> evaluat
                                                                |
                                                           saveMemory -> END
 ```
+
+## Documentation Index
+
+| File | Description |
+|------|-------------|
+| `.agent/README.md` | This file — project overview and documentation index |
+| `.agent/System/architecture.md` | Full system docs: tech stack, project structure, integrations, config, persistence |
+| `.agent/SOP/agent-architecture-patterns.md` | Graph design, node signatures, file organization, evaluation filtering |
+| `.agent/SOP/langgraph-command-routing.md` | Static vs dynamic edges, Command pattern, self-loops |
+| `.agent/SOP/langgraph-interrupts-and-resume.md` | `interrupt()`, resume, SQLite persistence, sequential review |
+| `.agent/SOP/langgraph-state-and-reducers.md` | State schemas, reducer patterns, defaults gotchas |
+| `.agent/SOP/llm-structured-output-and-prompts.md` | `withStructuredOutput`, prompt templates, rejection context |
+| `.agent/SOP/subprocess-and-search.md` | Python subprocess, last30days integration, query capping |
+| `.agent/SOP/testing-and-debugging.md` | Test patterns, common bugs, debugging tips |
+| `.agent/SOP/typescript-esm-and-tooling.md` | ESM imports, pnpm, tsx, ESLint, LangGraph Studio |
+| `.agent/Tasks/implementation-plan.md` | Full 16-task implementation roadmap (all complete) |
+| `.agent/Lessons/` | Lessons learned from corrections (populated as they occur) |
+
+### Related Documentation
+
+- `CLAUDE.md` — Claude Code instructions and workflow rules
+- `docs/The_agent_specs.md` — Full requirements specification
+- `docs/tone_examples.md` — Platform-specific tone and reply examples
+- `docs/business.md` — Sample business description
