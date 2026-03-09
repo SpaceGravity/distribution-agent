@@ -49,11 +49,20 @@ Using LangGraph, the agent follows this sequence:
 7. **Review + Post** (one-by-one sequential) -- For each draft, `interrupt()` pauses to show the user:
    - Original post (title, text, URL, platform)
    - Proposed reply draft
-   - Options: **approve** | **edit** | **reject** | **skip**
-   - On **reject**: user provides feedback, Claude regenerates the reply, presents again. Repeats until approve or explicit skip.
+   - Options: **approve** | **edit** | **reject_reply** | **reject_target** | **skip**
+   - On **reject_reply**: user provides feedback, Claude regenerates the reply via `replyRegenerationPrompt`, presents again (same index). Repeats until approve or explicit skip. Backward compatible: bare `reject` is treated as `reject_reply`.
+   - On **reject_target**: user provides a reason why the target post is unsuitable. A `TargetRejectionNote` (platform, title, URL, reason, timestamp) is recorded and the draft is skipped. These notes feed back into `criteriaGenerationPrompt` and `evaluationPrompt` to avoid similar targets in future iterations.
    - On **approve/edit**: If `AUTO_POST_ENABLED=true` (config flag, currently off -- no write tokens yet), post via platform API. Otherwise, log reply text for clipboard copy + open target URL for manual posting.
 
 8. **Save Memory + End** -- Persist winning search strategy to LangGraph Store. Log run summary.
+
+### Target Rejection Feedback Loop
+
+When a user sends `reject_target` during review, the rejection note feeds back at three points:
+1. **State**: Stored in `state.targetRejectionNotes` (append reducer).
+2. **Search criteria**: Injected into `criteriaGenerationPrompt()` as `<target_rejection_history>` XML block.
+3. **Evaluation**: Injected into `evaluationPrompt()` as `<rejected_targets>` XML block.
+4. **Memory**: Persisted in `save-memory.ts` as `targetRejectionPatterns` in the strategy record.
 
 ### Persistence and Resumability
 
@@ -72,7 +81,7 @@ Using LangGraph, the agent follows this sequence:
 | Memory | LangGraph Store | Cross-session persistent search strategies |
 | Auto-posting | Config flag (off) | No write tokens yet; clipboard + link fallback |
 | Review UX | One-by-one sequential | Maximum user control per reply |
-| Reject flow | Regenerate with feedback | Keeps trying until user approves or skips |
+| Reject flow | Two modes: reject_reply (regenerate) and reject_target (record + skip) | reject_reply retries same draft; reject_target feeds back into search refinement |
 | Safety filter | None (user decides) | User reviews every reply individually |
 
 
