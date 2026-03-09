@@ -25,6 +25,7 @@ export async function search(
   );
 
   const allResults: SearchResultItem[] = [];
+  const errors: string[] = [];
   for (let i = 0; i < settled.length; i++) {
     const result = settled[i];
     const query = cappedQueries[i];
@@ -34,10 +35,18 @@ export async function search(
         `[search] Query "${query.substring(0, 40)}..." returned ${result.value.length} results`
       );
     } else {
-      console.warn(
-        `[search] Query "${query.substring(0, 40)}..." failed: ${result.reason}`
-      );
+      const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      errors.push(`Query "${query.substring(0, 40)}...": ${msg}`);
+      console.error(`[search] Query failed: ${msg}`);
     }
+  }
+
+  if (allResults.length === 0 && errors.length > 0) {
+    throw new Error(`All ${errors.length} search queries failed:\n${errors.join('\n')}`);
+  }
+
+  if (errors.length > 0) {
+    console.warn(`[search] ${errors.length}/${cappedQueries.length} queries failed, continuing with ${allResults.length} results from successful queries`);
   }
 
   console.log(`[search] Total results collected: ${allResults.length}`);

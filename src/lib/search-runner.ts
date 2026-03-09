@@ -279,7 +279,7 @@ export async function searchPlatforms(
           console.error(
             `[search-runner] Failed to parse JSON output: ${(parseError as Error).message}`
           );
-          resolve([]);
+          reject(new Error(`Search JSON parse failed: ${(parseError as Error).message}`));
         }
       }
     );
