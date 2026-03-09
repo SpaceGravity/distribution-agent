@@ -39,7 +39,8 @@ export async function evaluate(state: DistributionState): Promise<Command> {
     newIteration,
     state.targetRejectionNotes.length > 0
       ? state.targetRejectionNotes
-      : undefined
+      : undefined,
+    state.searchResults.length
   );
 
   const decision = await structuredLlm.invoke(prompt);

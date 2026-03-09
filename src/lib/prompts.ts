@@ -139,14 +139,9 @@ export function evaluationPrompt(
   results: SearchResultItem[],
   evaluationHistory: EvaluationRecord[],
   iterationCount: number,
-  targetRejectionNotes?: TargetRejectionNote[]
+  targetRejectionNotes?: TargetRejectionNote[],
+  totalResultCount?: number
 ): string {
-  // Take top 30 results by score for the evaluation
-  const topResults = results
-    .slice()
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 30);
-
   let prompt = `You are evaluating search results for product-market fit. Your job is to determine whether the collected results contain enough high-quality opportunities for product outreach.
 
 <business_understanding>
@@ -157,10 +152,10 @@ Key Features: ${businessUnderstanding.keyFeatures.join(', ')}
 </business_understanding>
 
 <search_results>
-Total results: ${results.length}
-Top ${topResults.length} results by score:
+Total results: ${totalResultCount ?? results.length}
+Top ${results.length} results by score:
 
-${topResults
+${results
   .map(
     (r, i) => `${i + 1}. [${r.platform}] "${r.title}" (score: ${r.score})
    ID: ${r.id}
