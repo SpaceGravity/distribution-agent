@@ -161,6 +161,19 @@ export const DistributionStateSchema = z.object({
 
   // Approved targets for reply generation
   approvedTargets: z.array(SearchResultItemSchema).register(registry, {
+    reducer: {
+      fn: (left: SearchResultItem[], right: SearchResultItem[]) => {
+        // Deduplicate by id, keep highest score (same as searchResults)
+        const map = new Map<string, SearchResultItem>();
+        for (const item of [...left, ...right]) {
+          const existing = map.get(item.id);
+          if (!existing || item.score > existing.score) {
+            map.set(item.id, item);
+          }
+        }
+        return Array.from(map.values());
+      },
+    },
     default: () => [],
   }),
 
