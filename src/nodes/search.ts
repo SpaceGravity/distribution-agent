@@ -1,7 +1,7 @@
 // search node — Calls last30days via subprocess for each query in the criteria
 // Results are merged into state via the deduplication reducer
 
-import type { DistributionState } from '../state.js';
+import type { DistributionState, SearchResultItem } from '../state.js';
 import { searchPlatforms } from '../lib/search-runner.js';
 
 export async function search(
@@ -19,14 +19,25 @@ export async function search(
     `[search] Searching ${platformFilters.join(', ')} with ${cappedQueries.length} queries (depth: ${depth})${queries.length > 5 ? ` (capped from ${queries.length})` : ''}`
   );
 
-  // Run searches for each query and collect all results
-  const allResults = [];
-  for (const query of cappedQueries) {
-    const results = await searchPlatforms(query, platformFilters, depth);
-    allResults.push(...results);
-    console.log(
-      `[search] Query "${query.substring(0, 40)}..." returned ${results.length} results`
-    );
+  // Run all queries in parallel
+  const settled = await Promise.allSettled(
+    cappedQueries.map((query) => searchPlatforms(query, platformFilters, depth))
+  );
+
+  const allResults: SearchResultItem[] = [];
+  for (let i = 0; i < settled.length; i++) {
+    const result = settled[i];
+    const query = cappedQueries[i];
+    if (result.status === 'fulfilled') {
+      allResults.push(...result.value);
+      console.log(
+        `[search] Query "${query.substring(0, 40)}..." returned ${result.value.length} results`
+      );
+    } else {
+      console.warn(
+        `[search] Query "${query.substring(0, 40)}..." failed: ${result.reason}`
+      );
+    }
   }
 
   console.log(`[search] Total results collected: ${allResults.length}`);
