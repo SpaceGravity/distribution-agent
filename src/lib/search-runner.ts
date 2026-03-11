@@ -214,7 +214,14 @@ export async function searchPlatforms(
       {
         timeout: CONFIG.SEARCH_TIMEOUT_MS,
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large results
-        env: { ...process.env },
+        env: {
+          PATH: process.env.PATH,
+          HOME: process.env.HOME,
+          PYTHONPATH: process.env.PYTHONPATH,
+          VIRTUAL_ENV: process.env.VIRTUAL_ENV,
+          LANG: process.env.LANG,
+          LC_ALL: process.env.LC_ALL,
+        },
       },
       (error, stdout, stderr) => {
         if (error) {
