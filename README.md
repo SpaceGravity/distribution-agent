@@ -112,18 +112,18 @@ START -> getInput -> understandBusiness -> generateCriteria -> search -> evaluat
 ### Idea Path
 ```
 START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> extractTargets -> enrichTargets -> evaluateIdeaTargets
-                          ^                                                                                          |
-                          |                                                                                   [satisfactory?]
-                          |                                                                                  /      |        \
-                          |                                                                                yes   no(<5)   no(>=5)
-                          |                                                                                /       |          \
-                          |                                                                   batchReviewTargets  refineIdeaSearch  askIdeaHelp
-                          |                                                                        |
-                          |                                                                  [rejections?]
-                          |                                                                  /          \
-                          +-------(backfill)------------------------------yes               no
-                                                                                            |
-                                                                                     generateOutreach -> reviewOutreach -> exportCsv -> saveMemory -> END
+                                              ^                                                                        |
+                                              |                                                                 [satisfactory?]
+                                              |                                                                /      |        \
+                                              |                                                              yes   no(<5)   no(>=5)
+                                              |                                                              /       |          \
+                                              |                                                 batchReviewTargets  refineIdeaSearch  askIdeaHelp
+                                              |                                                      |
+                                              |                                                [rejections?]
+                                              |                                                /          \
+                                              +-----------(backfill)----------yes               no
+                                                                                               |
+                                                                                        generateOutreach -> reviewOutreach -> exportCsv -> saveMemory -> END
 ```
 
 ## Documentation Index

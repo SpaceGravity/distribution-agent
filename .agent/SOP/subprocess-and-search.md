@@ -39,13 +39,14 @@ async function runPythonScript(
 
 ### Command format
 ```bash
-python3 last30days.py "<query>" --emit=json --search=reddit,x,hn --agent
+python3 last30days.py "<query>" --emit=json --search=reddit,x,hn
 ```
 
 ### Flags
 - `--emit=json` — output structured JSON instead of text
 - `--search=<platforms>` — comma-separated platform list
-- `--agent` — suppress interactive prompts, machine-friendly output
+- `--quick` — faster, lighter search
+- `--deep` — more thorough search
 
 ### Output parsing
 The script outputs JSON with platform-specific fields. Normalize to a unified schema:
