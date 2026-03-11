@@ -1,64 +1,44 @@
-## Workflow Orchestration
+## Session Start
 
-### 1. Plan Node Default
+1. Launch a sub-agent to review `README.md` for project indexing, then use that index to review files related to the given task.
+2. Review `.agent/Lessons/` for lessons relevant to the task — avoid repeating past mistakes.
+3. Run `git status` to confirm clean state and correct branch.
 
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately – don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity
+## Planning
 
-### 2. Subagent Strategy
+- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions).
+- Write detailed specs upfront to reduce ambiguity.
+- If something goes sideways, STOP and re-plan immediately — don't keep pushing.
+- Write plan to `.agent/tasks/` with checkable items, each plan in a unique `.md`.
+- Check in with user before starting implementation.
 
-- Use subagents liberally to keep main context window clean
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One tack per subagent for focused execution
+## Subagent Strategy
 
-### 3. Self-Improvement Loop
+- Use subagents liberally to keep main context window clean.
+- Offload research, exploration, and parallel analysis to subagents.
+- For complex problems, throw more compute at it via subagents.
+- One task per subagent for focused execution.
 
-- After ANY correction from the user: update .agent/lessons/ with the pattern, related lessons on unique .md files do not put everything on one file.
-- Write rules for yourself that prevent the same mistake and add then to .agent/lessons
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start for relevant project
+## Verification Loop
 
-### 4. Verification Before Done
+After writing any code, follow this loop before marking done:
 
-- After writing any code and before testing it use /simplify command on what you have implmeneted
-- Never mark a task complete without proving it works in all aspects (UI,backend frontend, etc..)
-- After running /simplify, if issues are found during testing, fix them then re-run /simplify. Repeat this loop until the code is proven to work correctly under all aspects.
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-- Run tests, check logs, demonstrate correctness
+1. Run `/simplify` on the implemented code.
+2. Test it — run tests, check logs, verify all aspects (UI, backend, frontend).
+3. If issues found, fix them and go back to step 1.
+4. Repeat until the code is proven correct under all aspects.
+5. Ask yourself: "Would a staff engineer approve this?"
 
-### 5. Demand Elegance (Balanced)
+## Task Tracking
 
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes – don't over-engineer
-- Always challenge your own work before presenting it
-
-### 6. Autonomous Bug Fixing
-
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests – then resolve them
-- Zero context switching required from the user
-- Go fix failing CI tests without being told how
-
-
-## Task Management
-
-- Plan First: Write plan to .agent/tasks/ with checkable items, each plan in unique .md
-- Verify Plan: Check in before starting implementation
-- Track Progress: Mark items complete as you go
-- Explain Changes: High-level summary at each step
-- Document Results: Use /update-docs for documnetation
-- Capture Lessons: Update .agent/lessons after corrections
-
+- Track progress: mark plan items complete as you go.
+- Explain changes: high-level summary at each step.
+- Document results: use `/update-docs` for documentation.
+- Capture lessons: update `.agent/Lessons/` after corrections.
 
 ## Core Principles
 
-- Simplicity First: Make every change as simple as possible. Impact minimal code.
-- No Laziness: Find root causes. No temporary fixes. Senior developer standards.
-- Minimal Impact: Changes should only touch what's necessary. Avoid introducing bugs.
-- Security matters; always ask yourself: "Is what I built robustly secured?"
-- At each session launch sub-agent to review README.md file to have comprehensive understanding for the project, and review
+- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
+- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
+- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+- **Security**: Always ask yourself — "Is what I built robustly secured?"
