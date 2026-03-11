@@ -45,6 +45,24 @@ export const CONFIG = {
 
   // File validation
   MAX_BUSINESS_FILE_SIZE: 50 * 1024, // 50KB
+
+  // Idea path settings
+  IDEA_TARGET_CAP: 50,
+  IDEA_MAX_REVIEW_CYCLES: 5,
+  MAX_IDEA_FILE_SIZE: 50 * 1024, // 50KB
+
+  // Enrichment API keys (required for idea path)
+  REDDIT_CLIENT_ID: process.env.REDDIT_CLIENT_ID ?? '',
+  REDDIT_CLIENT_SECRET: process.env.REDDIT_CLIENT_SECRET ?? '',
+  X_BEARER_TOKEN: process.env.X_BEARER_TOKEN ?? '',
+
+  ENRICHMENT_CONCURRENCY: 10,
+  ENRICHMENT_TIMEOUT_MS: 10_000,
+
+  // CSV output
+  CSV_OUTPUT_DIR: resolve(
+    process.env.DISTRIBUTION_AGENT_CSV_DIR ?? './output'
+  ),
 } as const;
 
 export type Platform = (typeof CONFIG.SUPPORTED_PLATFORMS)[number];

@@ -6,6 +6,9 @@ import type {
   SearchResultItem,
   EvaluationRecord,
   TargetRejectionNote,
+  IdeaUnderstanding,
+  IdeaTarget,
+  IdeaRejectionNote,
 } from '../state.js';
 
 /**
@@ -369,4 +372,327 @@ ${toneExamples}
 Rewrite the reply addressing the feedback. Output ONLY the reply text, nothing else.`;
 
   return prompt;
+}
+
+// === Idea path prompts ===
+
+/**
+ * Prompt for analyzing an idea file and extracting structured understanding.
+ * Adapts flexibly to one-liner or detailed hypothesis.
+ */
+export function ideaUnderstandingPrompt(fileContent: string): string {
+  return `You are an expert at idea validation and customer discovery. Read the following idea description and extract structured information from it. The input may range from a single sentence to a detailed hypothesis document — adapt your extraction accordingly.
+
+<idea_description>
+${fileContent}
+</idea_description>
+
+Extract the following information (infer what you can, leave empty arrays where the input provides no signal):
+
+1. **rawText** - The original text verbatim.
+2. **problemHypothesis** - A clear, concise statement of the problem being hypothesized. If the input is vague, sharpen it into a testable hypothesis.
+3. **targetDemographic** - Who experiences this problem? Be specific (e.g., "solo founders building SaaS", not just "entrepreneurs").
+4. **assumptions** - What assumptions does this idea rest on? List them explicitly.
+5. **existingSolutions** - What existing solutions or workarounds might people currently use?
+6. **keywords** - 5-10 search keywords/phrases that people experiencing this problem would use online.
+7. **validationGoals** - What would prove or disprove this hypothesis? (e.g., "Find 10 people who report spending >2 hours/week on this task").
+
+Return your analysis as structured JSON matching this schema:
+{
+  "rawText": string,
+  "problemHypothesis": string,
+  "targetDemographic": string[],
+  "assumptions": string[],
+  "existingSolutions": string[],
+  "keywords": string[],
+  "validationGoals": string[]
+}`;
+}
+
+/**
+ * Prompt for generating content + community-discovery search queries
+ * from idea understanding.
+ */
+export function ideaCriteriaPrompt(
+  ideaUnderstanding: IdeaUnderstanding,
+  rejectionNotes?: IdeaRejectionNote[],
+  evaluationHistory?: EvaluationRecord[],
+  userGuidance?: string
+): string {
+  let prompt = `You are an expert at customer discovery and community research. Generate search queries to find people and communities related to a problem hypothesis.
+
+<idea_understanding>
+Problem Hypothesis: ${ideaUnderstanding.problemHypothesis}
+Target Demographic: ${ideaUnderstanding.targetDemographic.join(', ')}
+Assumptions: ${ideaUnderstanding.assumptions.join('; ')}
+Existing Solutions: ${ideaUnderstanding.existingSolutions.join(', ')}
+Keywords: ${ideaUnderstanding.keywords.join(', ')}
+Validation Goals: ${ideaUnderstanding.validationGoals.join('; ')}
+</idea_understanding>`;
+
+  if (evaluationHistory && evaluationHistory.length > 0) {
+    prompt += `
+
+<evaluation_history>
+${evaluationHistory
+  .map(
+    (record) => `Iteration ${record.iteration}:
+  - Queries used: ${record.criteria.queries.join('; ')}
+  - Results found: ${record.resultCount}
+  - Satisfactory: ${record.satisfactory ? 'Yes' : 'No'}
+  - Reasoning: ${record.reasoning}
+  - Suggested refinements: ${record.suggestedRefinements ?? 'None'}`
+  )
+  .join('\n\n')}
+</evaluation_history>`;
+  }
+
+  if (userGuidance) {
+    prompt += `
+
+<user_guidance>
+The user has provided the following guidance to help refine the search:
+${userGuidance}
+</user_guidance>`;
+  }
+
+  if (rejectionNotes && rejectionNotes.length > 0) {
+    prompt += `
+
+<rejection_history>
+The user rejected these targets. Adjust queries to avoid similar results.
+
+${rejectionNotes
+  .map((note) => `- [${note.platform}] "${note.name}" — Reason: ${note.reason}`)
+  .join('\n')}
+</rejection_history>`;
+  }
+
+  prompt += `
+
+Generate TWO types of search queries:
+
+1. **Content queries** (max 5): Find posts/threads by people discussing the pain point. Use the language and terminology real people would use when describing this problem.
+
+2. **Community-discovery queries** (max 3): Meta-queries to find relevant communities themselves, like "best subreddits for X", "top Discord servers for Y", "forums for Z".
+
+Return as structured JSON:
+{
+  "searchCriteria": {
+    "keywords": string[],
+    "queries": string[],
+    "platformFilters": string[],
+    "depth": "quick" | "default" | "deep"
+  },
+  "communityQueries": string[]
+}
+
+IMPORTANT:
+- Content queries: max 5. Focus on pain-point language.
+- Community queries: max 3. These run on web only.
+- Use specific, natural search terms — not generic keywords.`;
+
+  return prompt;
+}
+
+/**
+ * Prompt for extracting people and communities from search results.
+ */
+export function extractTargetsPrompt(
+  results: SearchResultItem[],
+  ideaUnderstanding: IdeaUnderstanding
+): string {
+  return `You are an expert at identifying potential validation targets from search results. Extract people and communities who are relevant to testing a problem hypothesis.
+
+<idea_understanding>
+Problem Hypothesis: ${ideaUnderstanding.problemHypothesis}
+Target Demographic: ${ideaUnderstanding.targetDemographic.join(', ')}
+</idea_understanding>
+
+<search_results>
+${results
+  .map(
+    (r, i) => `${i + 1}. [${r.platform}] "${r.title}"
+   URL: ${r.url}
+   Author: ${r.author}
+   Text: ${r.text.slice(0, 300)}${r.text.length > 300 ? '...' : ''}
+   Relevance: ${r.relevanceReason ?? 'not scored'}`
+  )
+  .join('\n\n')}
+</search_results>
+
+For each result, extract:
+- **Person targets**: The author of the post (if they appear to experience the problem or have relevant expertise). Use their handle/username as the name.
+- **Community targets**: The subreddit, forum, or community where the post appeared (if it's a relevant community hub).
+- **From web articles about communities**: Extract the community names and URLs mentioned in the article.
+
+Assign each target a category:
+- \`potential_customer\` — Someone who appears to experience the problem
+- \`domain_expert\` — Someone with expertise in the problem domain
+- \`community_hub\` — A community (subreddit, forum, Discord) focused on the problem area
+- \`competitor_user\` — Someone using an existing solution that addresses this problem
+
+Deduplicate: don't include the same person or community twice.
+
+Return as structured JSON:
+{
+  "targets": [
+    {
+      "name": string,           // handle, username, or community name
+      "platform": string,       // reddit, x, hn, web, etc.
+      "url": string,            // profile URL or community URL
+      "category": "potential_customer" | "domain_expert" | "community_hub" | "competitor_user",
+      "whyRelevant": string,    // One sentence explaining why this target is relevant
+      "sourcePostUrl": string,  // URL of the post where this target was found
+      "sourcePostTitle": string // Title of the source post
+    }
+  ]
+}
+
+Be selective — only include targets that are genuinely relevant to the problem hypothesis. Quality over quantity.`;
+}
+
+/**
+ * Prompt for evaluating idea targets against the idea understanding.
+ */
+export function evaluateIdeaTargetsPrompt(
+  targets: IdeaTarget[],
+  ideaUnderstanding: IdeaUnderstanding,
+  rejectionNotes?: IdeaRejectionNote[]
+): string {
+  let prompt = `You are evaluating discovered targets for idea validation quality. Determine whether the targets represent a good set of people and communities to validate the problem hypothesis.
+
+<idea_understanding>
+Problem Hypothesis: ${ideaUnderstanding.problemHypothesis}
+Target Demographic: ${ideaUnderstanding.targetDemographic.join(', ')}
+Validation Goals: ${ideaUnderstanding.validationGoals.join('; ')}
+</idea_understanding>
+
+<discovered_targets>
+${targets
+  .map(
+    (t, i) => `${i + 1}. [${t.platform}] ${t.name} (${t.category})
+   URL: ${t.url}
+   Why relevant: ${t.whyRelevant}
+   Followers: ${t.followerCount ?? 'unknown'}`
+  )
+  .join('\n\n')}
+</discovered_targets>`;
+
+  if (rejectionNotes && rejectionNotes.length > 0) {
+    prompt += `
+
+<rejection_history>
+Previously rejected targets (avoid similar ones):
+${rejectionNotes
+  .map((note) => `- [${note.platform}] "${note.name}" — ${note.reason}`)
+  .join('\n')}
+</rejection_history>`;
+  }
+
+  prompt += `
+
+Evaluate these targets on:
+1. **Audience match** — Do these people/communities represent the target demographic?
+2. **Category diversity** — Is there a mix of potential customers, experts, and communities?
+3. **Platform spread** — Are targets spread across multiple platforms?
+4. **Validation potential** — Can reaching out to these targets help validate the hypothesis?
+
+Return as structured JSON:
+{
+  "satisfactory": boolean,
+  "reasoning": string,
+  "approvedTargetIds": string[],
+  "suggestedRefinements": string
+}
+
+Be strict: only approve targets that genuinely match the target demographic and could provide validation signal.`;
+
+  return prompt;
+}
+
+/**
+ * Prompt for generating a context-aware outreach draft.
+ * Tone: validation-focused (curious, question-asking, not pitching).
+ */
+export function outreachDraftPrompt(
+  target: IdeaTarget,
+  ideaUnderstanding: IdeaUnderstanding
+): string {
+  const typeInstructions = {
+    dm: 'Write a direct message to this person. Keep it short (2-3 sentences max). Be personal and specific about why you are reaching out to them.',
+    post: 'Write a post for this community. Frame it as a question seeking insight from the community members. Include enough context for people to understand what you are exploring.',
+    comment: 'Write a comment reply to the thread where this person was found. Reference the specific topic being discussed and ask a follow-up question.',
+  };
+
+  return `You are someone exploring a problem hypothesis and reaching out to validate whether the problem is real and painful. You are NOT selling anything. You are genuinely curious and seeking to learn.
+
+<constraints>
+- NO emojis
+- DO NOT pitch a product or solution
+- DO NOT mention you are "validating an idea" or "doing customer discovery" — that feels transactional
+- Be genuinely curious and ask real questions
+- Keep it natural and human — not AI-generated sounding
+- Be specific about the problem area, not generic
+</constraints>
+
+<problem_hypothesis>
+${ideaUnderstanding.problemHypothesis}
+</problem_hypothesis>
+
+<target>
+Name: ${target.name}
+Platform: ${target.platform}
+Category: ${target.category}
+Why relevant: ${target.whyRelevant}
+Source post: ${target.sourcePostTitle}
+Outreach type: ${target.outreachType}
+</target>
+
+<outreach_type_instructions>
+${typeInstructions[target.outreachType]}
+</outreach_type_instructions>
+
+Write the outreach message now. Output ONLY the message text, nothing else.`;
+}
+
+/**
+ * Prompt for regenerating an outreach draft based on user feedback.
+ */
+export function outreachRegenerationPrompt(
+  target: IdeaTarget,
+  previousDraft: string,
+  feedback: string,
+  ideaUnderstanding: IdeaUnderstanding
+): string {
+  return `You are rewriting an outreach message for idea validation. The previous draft was rejected and you need to improve it.
+
+<constraints>
+- NO emojis
+- DO NOT pitch a product or solution
+- Be genuinely curious and ask real questions
+- Keep it natural and human
+</constraints>
+
+<problem_hypothesis>
+${ideaUnderstanding.problemHypothesis}
+</problem_hypothesis>
+
+<target>
+Name: ${target.name}
+Platform: ${target.platform}
+Category: ${target.category}
+Why relevant: ${target.whyRelevant}
+Outreach type: ${target.outreachType}
+</target>
+
+<previous_draft>
+${previousDraft}
+</previous_draft>
+
+<user_feedback>
+${feedback}
+</user_feedback>
+
+Rewrite the message addressing the feedback. Output ONLY the message text, nothing else.`;
 }

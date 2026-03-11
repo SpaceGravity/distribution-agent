@@ -2,7 +2,12 @@
 
 ## Project Goal
 
-Distribution Agent is a LangGraph-based TypeScript automation agent for product outreach. It searches multiple social media and web platforms for relevant conversations, evaluates results for product-market fit, generates contextual reply drafts matching the founder's tone, and presents them one-by-one for user approval before posting.
+Distribution Agent is a LangGraph-based TypeScript automation agent with two independent paths:
+
+1. **Business Path** — Product outreach. Searches platforms for relevant conversations, evaluates results for product-market fit, generates contextual reply drafts, and posts after user approval.
+2. **Idea Path** — Idea validation. Given a problem hypothesis, discovers people and communities who experience the problem, generates validation-focused outreach, and exports targets to CSV.
+
+Both paths share a single graph with a mode switch at `getInput`.
 
 ## Tech Stack
 
@@ -14,6 +19,8 @@ Distribution Agent is a LangGraph-based TypeScript automation agent for product 
 | Schema validation | `zod` ^4 (registry-based reducers) |
 | Persistence | `@langchain/langgraph-checkpoint-sqlite` (SQLite) |
 | Search | `last30days.py` skill (Python subprocess) |
+| Enrichment APIs | Reddit OAuth2, X API v2 (built-in `fetch`) |
+| CSV export | Manual RFC 4180 writer (no external library) |
 | Package manager | pnpm v10 |
 | Dev tooling | tsx, ESLint, Prettier, LangGraph CLI/Studio |
 
@@ -21,67 +28,131 @@ Distribution Agent is a LangGraph-based TypeScript automation agent for product 
 
 ```
 src/
-├── index.ts                  # Graph definition (11 nodes, edges, checkpointer)
-├── state.ts                  # Zod state schema with reducers
-├── config.ts                 # Environment config & constants
+├── index.ts                        # Graph definition (23 nodes, edges, checkpointer)
+├── state.ts                        # Zod state schema with reducers
+├── config.ts                       # Environment config & constants
 ├── nodes/
-│   ├── get-input.ts          # Interrupt: collect user inputs
-│   ├── understand-business.ts# Parse .md → BusinessUnderstanding
-│   ├── generate-criteria.ts  # LLM → SearchCriteria
-│   ├── search.ts             # Subprocess → last30days.py
-│   ├── evaluate.ts           # LLM evaluates results, routes next
-│   ├── refine-search.ts      # LLM improves criteria from history
-│   ├── ask-user-help.ts      # Interrupt after 5 failed iterations
-│   ├── generate-replies.ts   # Batched reply generation (concurrency=5)
-│   ├── review-reply.ts       # Sequential interrupt per draft
-│   ├── post-reply.ts         # Manual or auto-post
-│   └── save-memory.ts        # Persist strategy to disk
+│   ├── get-input.ts                # Interrupt: mode selection + input collection
+│   │
+│   │   === Business Path ===
+│   ├── understand-business.ts      # Parse .md → BusinessUnderstanding
+│   ├── generate-criteria.ts        # LLM → SearchCriteria
+│   ├── search.ts                   # Subprocess → last30days.py
+│   ├── evaluate.ts                 # LLM evaluates results, routes next
+│   ├── refine-search.ts            # LLM improves criteria from history
+│   ├── ask-user-help.ts            # Interrupt after 5 failed iterations
+│   ├── generate-replies.ts         # Batched reply generation (concurrency=5)
+│   ├── review-reply.ts             # Sequential interrupt per draft
+│   ├── post-reply.ts               # Manual or auto-post
+│   │
+│   │   === Idea Path ===
+│   ├── understand-idea.ts          # Parse idea.md → IdeaUnderstanding
+│   ├── generate-idea-criteria.ts   # Content + community-discovery queries
+│   ├── search-idea.ts              # Dual search (platforms + web)
+│   ├── extract-targets.ts          # LLM extracts people/communities
+│   ├── enrich-targets.ts           # Reddit/X API enrichment
+│   ├── evaluate-idea-targets.ts    # Audience match evaluation
+│   ├── refine-idea-search.ts       # Thin wrapper → delegates to generateIdeaCriteria
+│   ├── ask-idea-help.ts            # Interrupt after max iterations
+│   ├── batch-review-targets.ts     # Batch review + backfill loop
+│   ├── generate-outreach.ts        # Validation-focused outreach drafts
+│   ├── review-outreach.ts          # Batch outreach review
+│   ├── export-csv.ts               # CSV file output
+│   │
+│   │   === Shared ===
+│   └── save-memory.ts              # Persist strategy to disk (both modes)
 ├── lib/
-│   ├── llm.ts                # Shared ChatAnthropic instance
-│   ├── prompts.ts            # 5 prompt functions (pure, no LLM calls)
-│   └── search-runner.ts      # Subprocess wrapper for last30days.py
+│   ├── llm.ts                      # Shared ChatAnthropic instance
+│   ├── prompts.ts                  # 11 prompt functions (pure, no LLM calls)
+│   ├── search-runner.ts            # Subprocess wrapper for last30days.py
+│   ├── enrichment.ts               # Reddit OAuth, X API, URL verification
+│   └── csv-writer.ts               # RFC 4180 CSV serialization
 └── test-run.ts, test-advanced.ts
 ```
 
 ## Graph Flow
 
+### Mode Selection
+
 ```
-START → getInput → understandBusiness → generateCriteria → search → evaluate
-                                                            ↑           |
-                                                            |    [satisfactory?]
-                                                            |     /     |       \
-                                                            |   yes   no(<5)   no(>=5)
-                                                            |   /       |         \
-                                                   generateReplies  refineSearch  askUserHelp
-                                                            |                      ↓
-                                                      reviewReply ←──────── (reset + refine)
-                                                            |
-                                                       postReply
-                                                            |
-                                                       saveMemory → END
+START → getInput → [mode?]
+                     ├── business → understandBusiness → ...business path...
+                     └── idea     → understandIdea     → ...idea path...
+```
+
+### Business Path
+
+```
+understandBusiness → generateCriteria → search → evaluate
+                                          ↑           |
+                                          |    [satisfactory?]
+                                          |     /     |       \
+                                          |   yes   no(<5)   no(>=5)
+                                          |   /       |         \
+                                 generateReplies  refineSearch  askUserHelp
+                                          |                      ↓
+                                    reviewReply ←──────── (reset + refine)
+                                          |
+                                     postReply
+                                          |
+                                     saveMemory → END
+```
+
+### Idea Path
+
+```
+understandIdea → generateIdeaCriteria → searchIdea → extractTargets → enrichTargets → evaluateIdeaTargets
+                        ↑                                                                      |
+                        |                                                               [satisfactory?]
+                        |                                                              /      |        \
+                        |                                                            yes   no(<5)   no(>=5)
+                        |                                                            /       |          \
+                        |                                               batchReviewTargets  refineIdeaSearch  askIdeaHelp
+                        |                                                    |                    |              |
+                        |                                              [rejections?]               |         (guidance)
+                        |                                              /          \                |              |
+                        +-------(backfill)------------- yes            no         ←───────────────+
+                                                                       |
+                                                                generateOutreach → reviewOutreach → exportCsv → saveMemory → END
 ```
 
 ### Node Routing Summary
 
 | Node | Routing | Mechanism |
 |------|---------|-----------|
-| getInput | → understandBusiness | Static edge |
+| getInput | → understandBusiness / understandIdea | Command (dynamic) |
+| **Business Path** | | |
 | understandBusiness | → generateCriteria | Static edge |
 | generateCriteria | → search | Static edge |
 | search | → evaluate | Static edge |
 | evaluate | → generateReplies / refineSearch / askUserHelp | Command (dynamic) |
 | refineSearch | → search | Static edge |
-| askUserHelp | → refineSearch | Static edge |
+| askUserHelp | → refineSearch | Command (dynamic) |
 | generateReplies | → reviewReply | Static edge |
 | reviewReply | → postReply / reviewReply / saveMemory | Command (dynamic) |
 | postReply | → reviewReply / saveMemory | Command (dynamic) |
+| **Idea Path** | | |
+| understandIdea | → generateIdeaCriteria | Static edge |
+| generateIdeaCriteria | → searchIdea | Static edge |
+| searchIdea | → extractTargets | Static edge |
+| extractTargets | → enrichTargets | Static edge |
+| enrichTargets | → evaluateIdeaTargets | Static edge |
+| evaluateIdeaTargets | → batchReviewTargets / refineIdeaSearch / askIdeaHelp | Command (dynamic) |
+| refineIdeaSearch | → searchIdea | Static edge |
+| askIdeaHelp | → refineIdeaSearch | Command (dynamic) |
+| batchReviewTargets | → generateOutreach / generateIdeaCriteria | Command (dynamic) |
+| generateOutreach | → reviewOutreach | Static edge |
+| reviewOutreach | → exportCsv | Command (dynamic) |
+| exportCsv | → saveMemory | Static edge |
+| **Shared** | | |
 | saveMemory | → END | Static edge |
 
 ## Integration Points
 
 ### 1. Anthropic Claude API
 - Model: `claude-sonnet-4-6` (configurable via `config.ts`)
-- Used in: understandBusiness, generateCriteria, evaluate, generateReplies, reviewReply (regenerate)
+- **Business path**: understandBusiness, generateCriteria, evaluate, generateReplies, reviewReply (regenerate)
+- **Idea path**: understandIdea, generateIdeaCriteria, extractTargets, evaluateIdeaTargets, generateOutreach, reviewOutreach (regenerate)
 - Structured output via `.withStructuredOutput(ZodSchema)`
 - Auth: `ANTHROPIC_API_KEY` env var
 
@@ -90,18 +161,32 @@ START → getInput → understandBusiness → generateCriteria → search → ev
 - Invoked as: `python3 last30days.py <query> --emit=json --search=<platforms> [--quick|--deep]`
 - Platforms: reddit, x, web, youtube, tiktok, instagram, hackernews
 - Timeout: 5 minutes
-- Queries capped at 5, run in parallel via `Promise.allSettled()`
+- Queries capped at 5 (content) + 3 (community discovery for idea path)
+- All queries run in parallel via `Promise.allSettled()`
 
-### 3. LangGraph Studio
+### 3. Reddit API (Idea Path Enrichment)
+- OAuth2 client credentials flow → `POST /api/v1/access_token`
+- Subreddit member count → `GET /r/{subreddit}/about`
+- Auth: `REDDIT_CLIENT_ID` + `REDDIT_CLIENT_SECRET` env vars
+- Timeout: 10s per request
+
+### 4. X/Twitter API v2 (Idea Path Enrichment)
+- Follower count → `GET /2/users/by/username/{username}?user.fields=public_metrics`
+- Auth: `X_BEARER_TOKEN` env var
+- Timeout: 10s per request
+
+### 5. LangGraph Studio
 - Config: `langgraph.json` → `src/index.ts:graph`
 - Launch: `pnpm dev`
 - Visual debugging, interrupt handling, state editing
 
-### 4. File System
+### 6. File System
 - Business description: user-provided `.md` file (max 50KB)
+- Idea description: user-provided `.md` file (max 50KB)
 - Tone examples: optional `.md` with per-platform `##` sections
 - SQLite DB: `./distribution-agent.sqlite`
 - Strategy memory: `~/.distribution-agent/search-strategies.json` (last 50 strategies)
+- CSV output: `./output/idea-targets-{timestamp}.csv`
 
 ## Configuration
 
@@ -112,6 +197,10 @@ START → getInput → understandBusiness → generateCriteria → search → ev
 | `DISTRIBUTION_AGENT_DEFAULT_TARGET_COUNT` | 20 | Default number of reply targets |
 | `DISTRIBUTION_AGENT_DB_PATH` | `./distribution-agent.sqlite` | SQLite path |
 | `AUTO_POST_ENABLED` | false | Auto-post replies or manual (clipboard) |
+| `REDDIT_CLIENT_ID` | optional (idea) | Reddit API OAuth client ID — enrichment skipped if missing |
+| `REDDIT_CLIENT_SECRET` | optional (idea) | Reddit API OAuth client secret — enrichment skipped if missing |
+| `X_BEARER_TOKEN` | optional (idea) | X/Twitter API v2 bearer token — enrichment skipped if missing |
+| `DISTRIBUTION_AGENT_CSV_DIR` | `./output` | CSV export directory |
 
 ### Hardcoded Constants (config.ts)
 
@@ -121,6 +210,11 @@ START → getInput → understandBusiness → generateCriteria → search → ev
 - `REPLY_CONCURRENCY_LIMIT`: 5
 - `SEARCH_TIMEOUT_MS`: 300,000 (5 min)
 - `MAX_BUSINESS_FILE_SIZE`: 51,200 (50 KB)
+- `IDEA_TARGET_CAP`: 50
+- `IDEA_MAX_REVIEW_CYCLES`: 5
+- `MAX_IDEA_FILE_SIZE`: 51,200 (50 KB)
+- `ENRICHMENT_CONCURRENCY`: 10
+- `ENRICHMENT_TIMEOUT_MS`: 10,000 (10 sec)
 
 ## Persistence
 
@@ -130,19 +224,27 @@ START → getInput → understandBusiness → generateCriteria → search → ev
 
 ### Search Strategy Memory
 - Path: `~/.distribution-agent/search-strategies.json`
-- Stores: timestamp, business summary, platforms, winning criteria, iterations, results count, replies generated/posted, rejection patterns
+- Stores: timestamp, mode, business/idea summary, platforms, winning criteria, iterations, results count
+- Business mode adds: replies generated/posted
+- Idea mode adds: targets discovered, category counts, rejection patterns
 - Auto-trimmed to last 50 entries
 
 ## Key Patterns
 
+- **Dual-mode graph**: Single graph, `mode` field routes at `getInput` to business or idea path
 - **Command routing**: Nodes with multiple destinations return `Command { update, goto }`
-- **Interrupt-based control**: 3 interrupts (getInput, askUserHelp, reviewReply) for user interaction
-- **Rejection feedback loop**: `reject_target` notes injected into criteria + evaluation prompts
-- **State reducers**: Dedup by ID (searchResults, approvedTargets), append (evaluationHistory, rejectionNotes, postedReplies), upsert by targetId (replyDrafts)
+- **Interrupt-based control**: 6 interrupts total (getInput, askUserHelp, reviewReply for business; askIdeaHelp, batchReviewTargets, reviewOutreach for idea)
+- **Rejection feedback loop**: Rejection notes injected into criteria + evaluation prompts (both paths)
+- **Batch review with backfill**: Idea path reviews all targets at once; rejections trigger re-search to fill gaps
+- **Dual search strategy**: Idea path runs content queries on user platforms + community-discovery queries on web
+- **API enrichment**: Reddit/X APIs for follower counts (optional — soft-warn if keys missing), URL verification for community hubs
+- **State reducers**: Dedup by ID (searchResults, approvedTargets), upsert by ID (replyDrafts, ideaTargets), append (evaluationHistory, rejectionNotes, postedReplies, ideaRejectionNotes)
 
 ## Related Documentation
 
 - `CLAUDE.md` — Claude Code instructions and workflow rules
 - `docs/The_agent_specs.md` — Full requirements specification
+- `.agent/Tasks/idea-path-implementation.md` — Idea path feature spec and implementation plan
 - `.agent/SOP/agent-architecture-patterns.md` — Detailed architecture patterns
 - `.agent/SOP/langgraph-state-and-reducers.md` — State schema details
+- `.agent/SOP/llm-structured-output-and-prompts.md` — Prompt engineering patterns

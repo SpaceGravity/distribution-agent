@@ -6,16 +6,38 @@ import { existsSync } from 'fs';
 import type { DistributionState } from '../state.js';
 import { CONFIG } from '../config.js';
 
+function parsePlatforms(input: unknown): string[] {
+  const raw =
+    typeof input === 'string'
+      ? input.split(',').map((p: string) => p.trim().toLowerCase())
+      : (input as string[]) ?? [];
+  return raw.filter((p: string) =>
+    (CONFIG.SUPPORTED_PLATFORMS as readonly string[]).includes(p)
+  );
+}
+
 export async function getInput(
   state: DistributionState
 ): Promise<Partial<DistributionState> | Command> {
-  // If inputs already provided (e.g., via Studio initial state), skip interrupt
+  // If idea path inputs already provided, skip interrupt
+  if (state.mode === 'idea' && state.ideaFilePath) {
+    console.log(
+      `[getInput] Using pre-populated idea inputs: ${state.ideaFilePath}`
+    );
+    return new Command({
+      update: {},
+      goto: 'understandIdea',
+    });
+  }
+
+  // If business path inputs already provided, skip interrupt
   if (state.businessFilePath && state.selectedPlatforms.length > 0) {
     console.log(
       `[getInput] Using pre-populated inputs: ${state.businessFilePath}`
     );
     return new Command({
       update: {
+        mode: 'business',
         targetCount: state.targetCount ?? CONFIG.DEFAULT_TARGET_COUNT,
       },
       goto: 'understandBusiness',
@@ -26,14 +48,47 @@ export async function getInput(
   const userInput = interrupt({
     action: 'Provide input to start the Distribution Agent',
     fields: {
-      businessFilePath: 'Path to your business description .md file',
+      mode: 'Mode: "business" (product outreach) or "idea" (idea validation)',
+      businessFilePath:
+        'Path to your business description .md file (business mode)',
+      ideaFilePath: 'Path to your idea .md file (idea mode)',
       selectedPlatforms: `Platforms to search (comma-separated): ${CONFIG.SUPPORTED_PLATFORMS.join(', ')}`,
       targetCount: `Number of targets to find (default: ${CONFIG.DEFAULT_TARGET_COUNT})`,
-      toneFilePath: 'Path to tone examples .md file (optional)',
+      toneFilePath: 'Path to tone examples .md file (optional, business mode)',
     },
   });
 
-  // Validate business file path
+  const mode = (userInput.mode ?? 'business').toLowerCase().trim();
+
+  // === IDEA MODE ===
+  if (mode === 'idea') {
+    const ideaPath = userInput.ideaFilePath?.trim();
+    if (!ideaPath) {
+      throw new Error('Idea file path is required for idea mode.');
+    }
+    if (!ideaPath.endsWith('.md')) {
+      throw new Error('Idea file must be a .md file.');
+    }
+    if (!existsSync(ideaPath)) {
+      throw new Error(`Idea file not found: ${ideaPath}`);
+    }
+
+    const validPlatforms = parsePlatforms(userInput.selectedPlatforms);
+
+    return new Command({
+      update: {
+        mode: 'idea' as const,
+        ideaFilePath: ideaPath,
+        selectedPlatforms:
+          validPlatforms.length > 0
+            ? validPlatforms
+            : [...CONFIG.SUPPORTED_PLATFORMS],
+      },
+      goto: 'understandIdea',
+    });
+  }
+
+  // === BUSINESS MODE ===
   const bizPath = userInput.businessFilePath?.trim();
   if (!bizPath) {
     throw new Error('Business file path is required.');
@@ -45,15 +100,7 @@ export async function getInput(
     throw new Error(`Business file not found: ${bizPath}`);
   }
 
-  // Parse and validate platforms
-  const rawPlatforms =
-    typeof userInput.selectedPlatforms === 'string'
-      ? userInput.selectedPlatforms.split(',').map((p: string) => p.trim().toLowerCase())
-      : userInput.selectedPlatforms ?? [];
-
-  const validPlatforms = rawPlatforms.filter((p: string) =>
-    (CONFIG.SUPPORTED_PLATFORMS as readonly string[]).includes(p)
-  );
+  const validPlatforms = parsePlatforms(userInput.selectedPlatforms);
   if (validPlatforms.length === 0) {
     throw new Error(
       `At least one valid platform is required. Options: ${CONFIG.SUPPORTED_PLATFORMS.join(', ')}`
@@ -66,16 +113,18 @@ export async function getInput(
 
   // Validate tone file if provided
   const tonePath = userInput.toneFilePath?.trim();
-  if (tonePath && !existsSync(tonePath)) {
+  const toneFileExists = tonePath ? existsSync(tonePath) : false;
+  if (tonePath && !toneFileExists) {
     console.warn(`[getInput] Tone file not found: ${tonePath}, skipping`);
   }
 
   return new Command({
     update: {
+      mode: 'business' as const,
       businessFilePath: bizPath,
       selectedPlatforms: validPlatforms,
       targetCount,
-      toneFilePath: tonePath && existsSync(tonePath) ? tonePath : undefined,
+      toneFilePath: toneFileExists ? tonePath : undefined,
     },
     goto: 'understandBusiness',
   });

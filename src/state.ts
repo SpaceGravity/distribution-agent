@@ -90,6 +90,53 @@ export const TargetRejectionNoteSchema = z.object({
 });
 export type TargetRejectionNote = z.infer<typeof TargetRejectionNoteSchema>;
 
+// === Idea path sub-schemas ===
+
+export const IdeaUnderstandingSchema = z.object({
+  rawText: z.string(),
+  problemHypothesis: z.string(),
+  targetDemographic: z.array(z.string()),
+  assumptions: z.array(z.string()),
+  existingSolutions: z.array(z.string()),
+  keywords: z.array(z.string()),
+  validationGoals: z.array(z.string()),
+});
+
+export type IdeaUnderstanding = z.infer<typeof IdeaUnderstandingSchema>;
+
+export const IdeaTargetSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  platform: z.string(),
+  url: z.string(),
+  category: z.enum([
+    'potential_customer',
+    'domain_expert',
+    'community_hub',
+    'competitor_user',
+  ]),
+  whyRelevant: z.string(),
+  followerCount: z.number().nullable(),
+  sourcePostUrl: z.string(),
+  sourcePostTitle: z.string(),
+  outreachDraft: z.string(),
+  outreachType: z.enum(['dm', 'post', 'comment']),
+  status: z.enum(['pending', 'approved', 'rejected']),
+  rejectionReason: z.string().nullable(),
+});
+
+export type IdeaTarget = z.infer<typeof IdeaTargetSchema>;
+
+export const IdeaRejectionNoteSchema = z.object({
+  targetId: z.string(),
+  platform: z.string(),
+  name: z.string(),
+  reason: z.string(),
+  rejectedAt: z.string(),
+});
+
+export type IdeaRejectionNote = z.infer<typeof IdeaRejectionNoteSchema>;
+
 export const PostedReplySchema = z.object({
   targetId: z.string(),
   targetUrl: z.string(),
@@ -200,6 +247,33 @@ export const DistributionStateSchema = z.object({
     },
     default: () => [],
   }),
+
+  // === Idea path fields ===
+  mode: z.enum(['business', 'idea']).optional(),
+  ideaFilePath: z.string().optional(),
+  ideaUnderstanding: IdeaUnderstandingSchema.optional(),
+  ideaTargets: z.array(IdeaTargetSchema).register(registry, {
+    reducer: {
+      fn: (left: IdeaTarget[], right: IdeaTarget[]) => {
+        // Upsert by id — newer entry wins
+        const map = new Map<string, IdeaTarget>();
+        for (const t of left) map.set(t.id, t);
+        for (const t of right) map.set(t.id, t);
+        return Array.from(map.values());
+      },
+    },
+    default: () => [],
+  }),
+  ideaRejectionNotes: z.array(IdeaRejectionNoteSchema).register(registry, {
+    reducer: {
+      fn: (left: IdeaRejectionNote[], right: IdeaRejectionNote[]) =>
+        left.concat(right),
+    },
+    default: () => [],
+  }),
+  ideaReviewCycle: z.number().register(registry, { default: () => 0 }),
+  ideaCommunityQueries: z.array(z.string()).optional(),
+  csvOutputPath: z.string().optional(),
 });
 
 export type DistributionState = z.infer<typeof DistributionStateSchema>;

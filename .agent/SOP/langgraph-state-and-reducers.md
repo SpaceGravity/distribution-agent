@@ -77,7 +77,7 @@ export const MySchema = z.object({ ... });
 export type MyState = z.infer<typeof MySchema>;
 ```
 
-### Append for feedback/history arrays (targetRejectionNotes, evaluationHistory)
+### Append for feedback/history arrays (targetRejectionNotes, evaluationHistory, ideaRejectionNotes)
 ```ts
 targetRejectionNotes: z.array(TargetRejectionNoteSchema).register(registry, {
   reducer: { fn: (left, right) => left.concat(right) },
@@ -85,6 +85,29 @@ targetRejectionNotes: z.array(TargetRejectionNoteSchema).register(registry, {
 }),
 ```
 These accumulate across the session and are injected into prompts as context.
+
+### Upsert by ID for mutable target collections (ideaTargets)
+```ts
+ideaTargets: z.array(IdeaTargetSchema).register(registry, {
+  reducer: {
+    fn: (left: IdeaTarget[], right: IdeaTarget[]) => {
+      const map = new Map<string, IdeaTarget>();
+      for (const t of left) map.set(t.id, t);
+      for (const t of right) map.set(t.id, t);
+      return Array.from(map.values());
+    },
+  },
+  default: () => [],
+}),
+```
+Same pattern as `replyDrafts` — newer entry wins on conflict. Used when nodes update `status`, `followerCount`, or `outreachDraft` on existing targets.
+
+### Idea path state fields
+The idea path adds 8 new fields to state. Key patterns:
+- `mode: z.enum(['business', 'idea']).optional()` — no reducer, backward compatible (undefined = business)
+- `ideaReviewCycle: z.number()` — tracks batch review cycles, capped at `IDEA_MAX_REVIEW_CYCLES`
+- `ideaCommunityQueries: z.array(z.string()).optional()` — community-discovery queries separate from `searchCriteria.queries`
+- `csvOutputPath: z.string().optional()` — set by `exportCsv` node for summary logging
 
 ### Command updates go through reducers
 When a node returns `new Command({ update: { items: [newItem] } })`, the `items` array goes through the reducer — it does NOT replace the array. This is by design. If the reducer is `concat`, it appends. If it's dedup, it merges.

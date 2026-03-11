@@ -153,3 +153,58 @@ ${notes.map(n => `- [${n.targetPlatform}] "${n.targetTitle}" — Reason: ${n.rea
 ```
 
 This creates a feedback loop: target rejections influence both what gets searched for and what gets approved.
+
+## Idea path prompt patterns
+
+### Flexible extraction (ideaUnderstandingPrompt)
+When the input can range from a one-liner to a detailed document, tell the LLM to adapt:
+```
+The input may range from a single sentence to a detailed hypothesis document —
+adapt your extraction accordingly.
+```
+And use permissive instructions: "infer what you can, leave empty arrays where the input provides no signal."
+
+### Dual query generation (ideaCriteriaPrompt)
+Generate two types of queries in a single structured output:
+```ts
+const schema = z.object({
+  searchCriteria: SearchCriteriaSchema,    // content queries
+  communityQueries: z.array(z.string()),   // community-discovery queries
+});
+```
+Cap explicitly in both the prompt and code: `queries.slice(0, 5)`, `communityQueries.slice(0, 3)`.
+
+**Important:** `ideaCriteriaPrompt` accepts 4 parameters: `(ideaUnderstanding, rejectionNotes?, evaluationHistory?, userGuidance?)`. The 4th parameter passes through user guidance from `askIdeaHelp`. Both `generateIdeaCriteria` and `refineIdeaSearch` must pass `state.userGuidance` to this prompt — otherwise user help is silently discarded. See `.agent/Lessons/prompt-parameter-alignment.md`.
+
+### Target extraction from search results (extractTargetsPrompt)
+Instruct the LLM to extract two types of targets from each search result:
+- **Person targets**: The author (if they appear to experience the problem)
+- **Community targets**: The subreddit/forum where the post appeared
+
+Assign categories: `potential_customer | domain_expert | community_hub | competitor_user`
+
+### Validation-focused outreach tone
+For idea validation outreach, the tone is fundamentally different from business reply generation:
+```
+<constraints>
+- DO NOT pitch a product or solution
+- DO NOT mention you are "validating an idea" or "doing customer discovery"
+- Be genuinely curious and ask real questions
+- Keep it natural and human
+</constraints>
+```
+Outreach type determines format:
+- `dm` — short (2-3 sentences), personal, references why reaching out
+- `post` — community-appropriate question seeking insight
+- `comment` — references specific thread topic, asks follow-up
+
+### Idea rejection context injection
+Same pattern as business path but with `IdeaRejectionNote` (keyed by target name/platform instead of post title):
+```ts
+if (rejectionNotes?.length) {
+  prompt += `
+<rejection_history>
+${rejectionNotes.map(n => `- [${n.platform}] "${n.name}" — Reason: ${n.reason}`).join('\n')}
+</rejection_history>`;
+}
+```

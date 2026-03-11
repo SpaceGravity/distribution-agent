@@ -13,6 +13,7 @@ const MEMORY_FILE = resolve(MEMORY_DIR, 'search-strategies.json');
 
 interface StrategyRecord {
   timestamp: string;
+  mode: 'business' | 'idea';
   businessSummary: string;
   platforms: string[];
   winningCriteria: {
@@ -25,6 +26,11 @@ interface StrategyRecord {
   repliesGenerated: number;
   repliesPosted: number;
   targetRejectionPatterns?: string[];
+  // Idea-specific fields
+  ideaSummary?: string;
+  targetsDiscovered?: number;
+  targetCategories?: Record<string, number>;
+  ideaRejectionPatterns?: string[];
 }
 
 export async function saveMemory(
@@ -34,8 +40,21 @@ export async function saveMemory(
   const successfulEval = state.evaluationHistory.find((e) => e.satisfactory);
   const criteria = successfulEval?.criteria ?? state.searchCriteria;
 
+  const isIdeaMode = state.mode === 'idea';
+
+  // Build category counts for idea mode
+  let targetCategories: Record<string, number> | undefined;
+  if (isIdeaMode && state.ideaTargets.length > 0) {
+    targetCategories = {};
+    for (const t of state.ideaTargets) {
+      targetCategories[t.category] =
+        (targetCategories[t.category] ?? 0) + 1;
+    }
+  }
+
   const record: StrategyRecord = {
     timestamp: new Date().toISOString(),
+    mode: isIdeaMode ? 'idea' : 'business',
     businessSummary:
       state.businessUnderstanding?.summary ?? 'unknown',
     platforms: state.selectedPlatforms,
@@ -52,6 +71,20 @@ export async function saveMemory(
       state.targetRejectionNotes.length > 0
         ? state.targetRejectionNotes.map(
             (n) => `[${n.targetPlatform}] ${n.reason}`
+          )
+        : undefined,
+    // Idea-specific fields
+    ideaSummary: isIdeaMode
+      ? state.ideaUnderstanding?.problemHypothesis
+      : undefined,
+    targetsDiscovered: isIdeaMode
+      ? state.ideaTargets.length
+      : undefined,
+    targetCategories,
+    ideaRejectionPatterns:
+      isIdeaMode && state.ideaRejectionNotes.length > 0
+        ? state.ideaRejectionNotes.map(
+            (n) => `[${n.platform}] ${n.reason}`
           )
         : undefined,
   };
@@ -81,12 +114,32 @@ export async function saveMemory(
 
   // Log run summary
   console.log('\n=== Distribution Agent Run Summary ===');
-  console.log(`Business: ${record.businessSummary.substring(0, 80)}`);
+  console.log(`Mode: ${record.mode}`);
+  if (record.mode === 'idea') {
+    console.log(
+      `Idea: ${record.ideaSummary?.substring(0, 80) ?? 'unknown'}`
+    );
+    console.log(`Targets discovered: ${record.targetsDiscovered ?? 0}`);
+    if (record.targetCategories) {
+      console.log(
+        `Categories: ${Object.entries(record.targetCategories)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(', ')}`
+      );
+    }
+    if (state.csvOutputPath) {
+      console.log(`CSV exported: ${state.csvOutputPath}`);
+    }
+  } else {
+    console.log(
+      `Business: ${record.businessSummary.substring(0, 80)}`
+    );
+    console.log(`Replies generated: ${record.repliesGenerated}`);
+    console.log(`Replies posted: ${record.repliesPosted}`);
+  }
   console.log(`Platforms: ${record.platforms.join(', ')}`);
   console.log(`Search iterations: ${record.iterationsUsed}`);
   console.log(`Results found: ${record.totalResultsFound}`);
-  console.log(`Replies generated: ${record.repliesGenerated}`);
-  console.log(`Replies posted: ${record.repliesPosted}`);
   console.log('======================================\n');
 
   return {};

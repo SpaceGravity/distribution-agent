@@ -7,7 +7,7 @@ import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite';
 import { DistributionStateSchema } from './state.js';
 import { CONFIG } from './config.js';
 
-// Node imports
+// Node imports — Business path
 import { getInput } from './nodes/get-input.js';
 import { understandBusiness } from './nodes/understand-business.js';
 import { generateCriteria } from './nodes/generate-criteria.js';
@@ -20,16 +20,29 @@ import { reviewReply } from './nodes/review-reply.js';
 import { postReply } from './nodes/post-reply.js';
 import { saveMemory } from './nodes/save-memory.js';
 
+// Node imports — Idea path
+import { understandIdea } from './nodes/understand-idea.js';
+import { generateIdeaCriteria } from './nodes/generate-idea-criteria.js';
+import { searchIdea } from './nodes/search-idea.js';
+import { extractTargets } from './nodes/extract-targets.js';
+import { enrichTargets } from './nodes/enrich-targets.js';
+import { evaluateIdeaTargets } from './nodes/evaluate-idea-targets.js';
+import { refineIdeaSearch } from './nodes/refine-idea-search.js';
+import { askIdeaHelp } from './nodes/ask-idea-help.js';
+import { batchReviewTargets } from './nodes/batch-review-targets.js';
+import { generateOutreach } from './nodes/generate-outreach.js';
+import { reviewOutreach } from './nodes/review-outreach.js';
+import { exportCsv } from './nodes/export-csv.js';
+
 // --- Graph construction ---
 // SqliteSaver persists state to disk for full resume across process restarts
 
 const checkpointer = SqliteSaver.fromConnString(CONFIG.DB_PATH);
 
 export const graph = new StateGraph(DistributionStateSchema)
-  // --- Nodes ---
-  // Nodes returning Command need `ends` to declare possible destinations
+  // --- Business path nodes ---
   .addNode('getInput', getInput, {
-    ends: ['understandBusiness'],
+    ends: ['understandBusiness', 'understandIdea'],
   })
   .addNode('understandBusiness', understandBusiness)
   .addNode('generateCriteria', generateCriteria)
@@ -50,8 +63,25 @@ export const graph = new StateGraph(DistributionStateSchema)
   })
   .addNode('saveMemory', saveMemory)
 
-  // --- Edges ---
-  // Static edges for the linear path; conditional routing handled by Command in nodes
+  // --- Idea path nodes ---
+  .addNode('understandIdea', understandIdea)
+  .addNode('generateIdeaCriteria', generateIdeaCriteria)
+  .addNode('searchIdea', searchIdea)
+  .addNode('extractTargets', extractTargets)
+  .addNode('enrichTargets', enrichTargets)
+  .addNode('evaluateIdeaTargets', evaluateIdeaTargets, {
+    ends: ['batchReviewTargets', 'refineIdeaSearch', 'askIdeaHelp'],
+  })
+  .addNode('refineIdeaSearch', refineIdeaSearch)
+  .addNode('askIdeaHelp', askIdeaHelp, { ends: ['refineIdeaSearch'] })
+  .addNode('batchReviewTargets', batchReviewTargets, {
+    ends: ['generateOutreach', 'generateIdeaCriteria'],
+  })
+  .addNode('generateOutreach', generateOutreach)
+  .addNode('reviewOutreach', reviewOutreach, { ends: ['exportCsv'] })
+  .addNode('exportCsv', exportCsv)
+
+  // --- Business path edges ---
   .addEdge(START, 'getInput')
   .addEdge('understandBusiness', 'generateCriteria')
   .addEdge('generateCriteria', 'search')
@@ -59,6 +89,16 @@ export const graph = new StateGraph(DistributionStateSchema)
   .addEdge('refineSearch', 'search')
   .addEdge('generateReplies', 'reviewReply')
   .addEdge('saveMemory', END)
+
+  // --- Idea path edges ---
+  .addEdge('understandIdea', 'generateIdeaCriteria')
+  .addEdge('generateIdeaCriteria', 'searchIdea')
+  .addEdge('searchIdea', 'extractTargets')
+  .addEdge('extractTargets', 'enrichTargets')
+  .addEdge('enrichTargets', 'evaluateIdeaTargets')
+  .addEdge('refineIdeaSearch', 'searchIdea')
+  .addEdge('generateOutreach', 'reviewOutreach')
+  .addEdge('exportCsv', 'saveMemory')
 
   .compile({ checkpointer });
 

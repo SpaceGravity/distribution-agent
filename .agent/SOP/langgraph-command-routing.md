@@ -59,6 +59,23 @@ A node can route back to itself (e.g., `reviewReply` → `reviewReply` for rejec
 })
 ```
 
+## Mode-based routing at entry point
+
+For a single graph supporting multiple paths, use the entry node as a mode switch:
+```ts
+.addNode('getInput', getInput, {
+  ends: ['understandBusiness', 'understandIdea'],
+})
+
+// In the node:
+if (mode === 'idea') {
+  return new Command({ update: { mode: 'idea' }, goto: 'understandIdea' });
+}
+return new Command({ update: { mode: 'business' }, goto: 'understandBusiness' });
+```
+
+The two paths are fully independent — they share no nodes except `getInput` (entry) and `saveMemory` (terminal). Both paths converge at `saveMemory → END` via static edges.
+
 ## Debugging routing issues
 
 If the graph stops unexpectedly:

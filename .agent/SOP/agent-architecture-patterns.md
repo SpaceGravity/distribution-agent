@@ -2,8 +2,17 @@
 
 ## Graph flow design
 
+### Dual-mode graph with shared entry point
+The graph supports two independent paths via a `mode` field. `getInput` routes to either `understandBusiness` (business mode) or `understandIdea` (idea mode). Both paths share `saveMemory` as their terminal node.
+
+```
+START -> getInput -> [mode?]
+                       ├── business → linear business path → saveMemory → END
+                       └── idea     → linear idea path     → saveMemory → END
+```
+
 ### Linear backbone with conditional branches
-The main flow is linear (getInput -> understandBusiness -> generateCriteria -> search -> evaluate). Branch points use `Command` routing:
+Each path has a linear backbone with branch points using `Command` routing:
 
 ```
 START -> linear nodes -> branch point
@@ -83,19 +92,21 @@ export async function myNode(
 ## File organization
 
 ```
-src/distribution-agent/
-  index.ts           # Graph construction only
-  state.ts           # All Zod schemas
+src/
+  index.ts           # Graph construction only (23 nodes)
+  state.ts           # All Zod schemas (business + idea)
   config.ts          # Env-based constants
-  nodes/             # One file per node
-    get-input.ts
-    evaluate.ts
-    ...
+  nodes/             # One file per node (23 files)
+    get-input.ts     # Shared entry: mode selection
+    ...business...   # 10 business-specific nodes
+    ...idea...       # 12 idea-specific nodes
+    save-memory.ts   # Shared: mode-aware strategy persistence
   lib/               # Shared utilities
     llm.ts           # ChatAnthropic instance
-    prompts.ts       # All prompt templates
+    prompts.ts       # 11 prompt template functions
     search-runner.ts # Subprocess wrapper
-  templates/         # User-facing templates
+    enrichment.ts    # Reddit/X API clients + URL check
+    csv-writer.ts    # RFC 4180 CSV serialization
   test-run.ts        # Basic E2E test
   test-advanced.ts   # Comprehensive test suite
 ```
@@ -104,6 +115,8 @@ src/distribution-agent/
 - **state.ts**: Only schemas and types. No logic.
 - **config.ts**: Only env vars and constants. No logic.
 - **lib/prompts.ts**: Only prompt template functions. No LLM calls.
+- **lib/enrichment.ts**: Only API client functions. No graph logic.
+- **lib/csv-writer.ts**: Only CSV serialization. No graph logic.
 - **nodes/**: Each file is one node function. Imports from lib/.
 - **index.ts**: Only graph construction. Imports nodes.
 
@@ -166,3 +179,87 @@ writeFileSync(MEMORY_FILE, JSON.stringify(strategies, null, 2));
 ```
 
 This is a simple alternative to LangGraph Store when you don't need cloud persistence.
+
+## Batch review with backfill pattern (idea path)
+
+For reviewing all items at once with the ability to reject and re-search:
+
+```
+batchReviewTargets ← (backfill) ← generateIdeaCriteria ← ...search/extract loop...
+        |
+  [rejections?]
+  /          \
+yes           no → generateOutreach
+  |
+  → remove rejected, record IdeaRejectionNote
+  → increment ideaReviewCycle
+  → goto generateIdeaCriteria (re-search to fill gaps)
+```
+
+Key design decisions:
+- Review cycle capped at `IDEA_MAX_REVIEW_CYCLES` (5) — force-proceeds after that
+- Rejected targets are completely removed (not marked skipped)
+- Rejection notes feed back into search criteria + evaluation prompts
+- Different from business path's one-by-one review — all targets shown at once
+
+## Dual search strategy (idea path)
+
+The idea path runs two types of searches in parallel:
+1. **Content queries** (max 5): Run on user-selected platforms to find people discussing the pain point
+2. **Community-discovery queries** (max 3): Run on `web` only to find relevant communities (subreddits, forums, Discord servers)
+
+Both result sets merge into `searchResults` via the existing dedup reducer.
+
+## External API enrichment pattern
+
+For enriching targets with external data (follower counts):
+
+```ts
+// 1. Check API keys — soft-warn if missing, skip those platforms
+const hasRedditKeys = !!CONFIG.REDDIT_CLIENT_ID && !!CONFIG.REDDIT_CLIENT_SECRET;
+const hasXKey = !!CONFIG.X_BEARER_TOKEN;
+if (!hasRedditKeys) console.warn('Reddit keys missing — skipping Reddit enrichment');
+
+// 2. Get auth tokens once (only if keys present and targets exist)
+let redditToken: string | null = null;
+if (hasRedditKeys && hasRedditTargets) {
+  try { redditToken = await getRedditAccessToken(...); }
+  catch (err) { console.warn(`Reddit OAuth failed: ${err}`); }
+}
+
+// 3. Process in batches with concurrency limit, passing key flags
+for (let i = 0; i < targets.length; i += CONCURRENCY) {
+  const batch = targets.slice(i, i + CONCURRENCY);
+  await Promise.allSettled(batch.map(t => enrichSingle(t, redditToken, hasXKey)));
+}
+
+// 4. Run follower lookup + URL verification in parallel per target
+const [followerCount, isAlive] = await Promise.all([followerPromise, urlPromise]);
+
+// 5. Individual failures → log warning, set null, continue
+```
+
+Key principles:
+- **Soft-warn on missing API keys** — enrichment is optional, never blocks pipeline
+- Individual failures never block the pipeline
+- Concurrency-limited to avoid rate limits
+- Parallelize follower lookup + URL verification within each target
+
+## CSV export pattern
+
+For RFC 4180 compliant CSV output:
+
+```ts
+// Escape fields containing commas, quotes, or newlines
+function escapeCsvField(value: string | number | null): string {
+  const str = String(value ?? '');
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+```
+
+- Create output directory with `mkdirSync({ recursive: true })`
+- Filename includes timestamp for uniqueness
+- No external CSV library needed

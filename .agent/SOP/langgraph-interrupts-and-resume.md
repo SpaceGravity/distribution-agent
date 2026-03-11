@@ -136,6 +136,48 @@ pnpm v10 blocks native module builds by default. Add to `package.json`:
 ```
 Then run `npx pnpm rebuild better-sqlite3`.
 
+## Batch review interrupt pattern (idea path)
+
+For reviewing all items at once instead of one-by-one:
+
+```ts
+export async function batchReviewTargets(state: State): Promise<Command> {
+  // Force-proceed after max cycles
+  if (state.reviewCycle >= MAX_CYCLES) {
+    return new Command({ update: {}, goto: 'nextNode' });
+  }
+
+  const items = state.items.filter(t => t.status === 'approved' || t.status === 'pending');
+
+  const response = interrupt({
+    action: 'Review all items',
+    items: items.map(t => ({ id: t.id, name: t.name, ... })),
+    instructions: 'Respond with { "approved": true } or { "rejections": [{ "id": "...", "reason": "..." }] }',
+  });
+
+  if (response.approved === true) {
+    return new Command({ update: {}, goto: 'nextNode' });
+  }
+
+  // Process rejections → backfill loop
+  const rejections = response.rejections ?? [];
+  return new Command({
+    update: {
+      items: items.filter(t => !rejectedIds.has(t.id)),
+      rejectionNotes: rejections.map(r => ({ ... })),
+      reviewCycle: state.reviewCycle + 1,
+    },
+    goto: 'refineAndResearch', // backfill loop
+  });
+}
+```
+
+Key differences from sequential review:
+- All items presented at once (not one-by-one)
+- Rejections trigger a backfill search loop (not just skip)
+- Cycle counter prevents infinite loops
+- Declared with `{ ends: ['nextNode', 'backfillNode'] }` for two possible destinations
+
 ## Resume test pattern
 
 To verify SQLite persistence works:

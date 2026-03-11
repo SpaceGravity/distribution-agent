@@ -1,0 +1,111 @@
+// batchReviewTargets node — Presents all targets for batch review
+// User can approve all or reject specific targets (triggers backfill loop)
+
+import { interrupt, Command } from '@langchain/langgraph';
+import type { DistributionState, IdeaRejectionNote } from '../state.js';
+import { CONFIG } from '../config.js';
+
+export async function batchReviewTargets(
+  state: DistributionState
+): Promise<Command> {
+  const cycle = state.ideaReviewCycle ?? 0;
+
+  // Force-proceed after max review cycles
+  if (cycle >= CONFIG.IDEA_MAX_REVIEW_CYCLES) {
+    console.log(
+      `[batchReviewTargets] Max review cycles (${CONFIG.IDEA_MAX_REVIEW_CYCLES}) reached. Proceeding to outreach.`
+    );
+    return new Command({
+      update: {},
+      goto: 'generateOutreach',
+    });
+  }
+
+  // Present approved/pending targets for review
+  const reviewableTargets = state.ideaTargets
+    .filter((t) => t.status === 'approved' || t.status === 'pending')
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      platform: t.platform,
+      url: t.url,
+      category: t.category,
+      whyRelevant: t.whyRelevant,
+      followerCount: t.followerCount,
+    }));
+
+  console.log(
+    `[batchReviewTargets] Review cycle ${cycle + 1}/${CONFIG.IDEA_MAX_REVIEW_CYCLES}: presenting ${reviewableTargets.length} targets`
+  );
+
+  const userResponse = interrupt({
+    action: 'Review discovered targets for idea validation',
+    reviewCycle: `${cycle + 1} of ${CONFIG.IDEA_MAX_REVIEW_CYCLES}`,
+    targets: reviewableTargets,
+    instructions:
+      'Respond with { "approved": true } to approve all, or { "rejections": [{ "id": "...", "reason": "..." }] } to reject specific targets.',
+  });
+
+  // Handle approval
+  if (
+    userResponse.approved === true ||
+    (typeof userResponse === 'string' &&
+      userResponse.toLowerCase().trim() === 'approve')
+  ) {
+    console.log('[batchReviewTargets] All targets approved.');
+    const updatedTargets = state.ideaTargets.map((t) =>
+      t.status === 'pending' ? { ...t, status: 'approved' as const } : t
+    );
+    return new Command({
+      update: { ideaTargets: updatedTargets },
+      goto: 'generateOutreach',
+    });
+  }
+
+  // Handle rejections
+  const rejections: Array<{ id: string; reason: string }> =
+    userResponse.rejections ?? [];
+
+  if (rejections.length === 0) {
+    // No explicit rejections — treat as approval
+    console.log(
+      '[batchReviewTargets] No rejections specified. Proceeding.'
+    );
+    return new Command({
+      update: {},
+      goto: 'generateOutreach',
+    });
+  }
+
+  const rejectedIds = new Set(rejections.map((r) => r.id));
+
+  // Build rejection notes
+  const rejectionNotes: IdeaRejectionNote[] = rejections.map((r) => {
+    const target = state.ideaTargets.find((t) => t.id === r.id);
+    return {
+      targetId: r.id,
+      platform: target?.platform ?? 'unknown',
+      name: target?.name ?? 'unknown',
+      reason: r.reason,
+      rejectedAt: new Date().toISOString(),
+    };
+  });
+
+  // Remove rejected targets
+  const updatedTargets = state.ideaTargets
+    .filter((t) => !rejectedIds.has(t.id))
+    .map((t) => t);
+
+  console.log(
+    `[batchReviewTargets] ${rejections.length} targets rejected. Backfilling via generateIdeaCriteria.`
+  );
+
+  return new Command({
+    update: {
+      ideaTargets: updatedTargets,
+      ideaRejectionNotes: rejectionNotes,
+      ideaReviewCycle: cycle + 1,
+    },
+    goto: 'generateIdeaCriteria',
+  });
+}
