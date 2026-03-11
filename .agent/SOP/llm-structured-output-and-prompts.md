@@ -5,7 +5,7 @@
 ```ts
 import { ChatAnthropic } from '@langchain/anthropic';
 
-const llm = new ChatAnthropic({ model: 'claude-sonnet-4-20250514' });
+const llm = new ChatAnthropic({ model: 'claude-sonnet-4-6' });
 
 const OutputSchema = z.object({
   satisfactory: z.boolean(),

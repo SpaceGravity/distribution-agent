@@ -4,7 +4,7 @@ LangGraph-based automation agent with two modes: **product outreach** (business 
 
 ## Architecture
 
-- **23 nodes** with Command-based routing (11 business + 12 idea + shared)
+- **23 nodes** with Command-based routing (2 shared + 9 business + 12 idea)
 - **SqliteSaver** checkpointer for persistence
 - **Human-in-the-loop** interrupts for review and approval (6 interrupt points)
 - **Dual-mode graph** — business outreach or idea validation via mode selection
