@@ -136,7 +136,9 @@ function extractSubredditName(name: string, url: string): string | null {
   // Fallback: name might be "r/subredditname" or just the name
   const nameMatch = name.match(/^r\/(.+)$/i);
   if (nameMatch) return nameMatch[1];
-  return name;
+  // Validate raw name matches subreddit format before using it
+  if (/^[a-zA-Z0-9_]+$/.test(name)) return name;
+  return null;
 }
 
 function extractXUsername(name: string, url: string): string | null {
@@ -144,5 +146,8 @@ function extractXUsername(name: string, url: string): string | null {
   const urlMatch = url.match(/(?:twitter\.com|x\.com)\/([^/?\s]+)/);
   if (urlMatch) return urlMatch[1];
   // Fallback: name might be "@username" or just username
-  return name.replace(/^@/, '');
+  const cleaned = name.replace(/^@/, '');
+  // Validate username format before using
+  if (/^[a-zA-Z0-9_]+$/.test(cleaned)) return cleaned;
+  return null;
 }

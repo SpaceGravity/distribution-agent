@@ -34,16 +34,19 @@ export async function generateIdeaCriteria(
 
   const result = await structuredLlm.invoke(prompt);
 
-  // Cap content queries to 5, community queries to 3
-  result.searchCriteria.queries = result.searchCriteria.queries.slice(0, 5);
-  result.communityQueries = result.communityQueries.slice(0, 3);
+  // Cap content queries to 5, community queries to 3 (immutable — no in-place mutation)
+  const cappedCriteria = {
+    ...result.searchCriteria,
+    queries: result.searchCriteria.queries.slice(0, 5),
+  };
+  const cappedCommunityQueries = result.communityQueries.slice(0, 3);
 
   console.log(
-    `[generateIdeaCriteria] Generated ${result.searchCriteria.queries.length} content queries, ${result.communityQueries.length} community queries`
+    `[generateIdeaCriteria] Generated ${cappedCriteria.queries.length} content queries, ${cappedCommunityQueries.length} community queries`
   );
 
   return {
-    searchCriteria: result.searchCriteria,
-    ideaCommunityQueries: result.communityQueries,
+    searchCriteria: cappedCriteria,
+    ideaCommunityQueries: cappedCommunityQueries,
   };
 }

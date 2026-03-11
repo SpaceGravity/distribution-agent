@@ -82,14 +82,46 @@ export async function getTwitterFollowerCount(
 }
 
 /**
+ * Check if a URL points to a private/internal IP range (SSRF prevention).
+ */
+function isPrivateUrl(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr);
+    const hostname = parsed.hostname;
+    // Block non-HTTP(S) schemes
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return true;
+    // Block obvious private/internal hostnames
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return true;
+    if (hostname === '0.0.0.0' || hostname === '[::1]') return true;
+    // Block metadata endpoints
+    if (hostname === '169.254.169.254') return true;
+    // Block private IP ranges
+    const parts = hostname.split('.');
+    if (parts.length === 4 && parts.every((p) => /^\d+$/.test(p))) {
+      const first = parseInt(parts[0]);
+      const second = parseInt(parts[1]);
+      if (first === 10) return true;
+      if (first === 172 && second >= 16 && second <= 31) return true;
+      if (first === 192 && second === 168) return true;
+      if (first === 127) return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Verify a URL is reachable (HEAD request, accepts 200-399).
+ * Rejects private/internal URLs to prevent SSRF.
  */
 export async function verifyUrl(url: string): Promise<boolean> {
+  if (isPrivateUrl(url)) return false;
   try {
     const response = await fetch(url, {
       method: 'HEAD',
       signal: AbortSignal.timeout(CONFIG.ENRICHMENT_TIMEOUT_MS),
-      redirect: 'follow',
+      redirect: 'manual', // Don't follow redirects (prevents SSRF via open redirect)
     });
     return response.status >= 200 && response.status < 400;
   } catch {

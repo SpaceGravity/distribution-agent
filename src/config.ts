@@ -2,6 +2,7 @@
 // All values sourced from environment variables with sensible defaults
 
 import { resolve } from 'path';
+import { homedir } from 'os';
 
 export const CONFIG = {
   // LLM settings
@@ -15,7 +16,7 @@ export const CONFIG = {
     process.env.DISTRIBUTION_AGENT_DEFAULT_TARGET_COUNT ?? '20'
   ),
   LAST30DAYS_SCRIPT: resolve(
-    process.env.HOME ?? '~',
+    homedir(),
     '.claude/skills/last30days/scripts/last30days.py'
   ),
   SUPPORTED_PLATFORMS: [

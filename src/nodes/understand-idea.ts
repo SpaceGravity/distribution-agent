@@ -20,21 +20,26 @@ export async function understandIdea(
   // Validate and read idea file
   const absPath = resolve(filePath);
   const allowedRoot = resolve('.');
-  if (!absPath.startsWith(allowedRoot)) {
+  if (!absPath.startsWith(allowedRoot + '/') && absPath !== allowedRoot) {
     throw new Error('Path traversal detected in idea file path.');
   }
   if (!absPath.endsWith('.md')) {
     throw new Error('Idea file must be a .md file.');
   }
 
-  const stats = statSync(absPath);
-  if (stats.size > CONFIG.MAX_IDEA_FILE_SIZE) {
-    throw new Error(
-      `Idea file too large: ${stats.size} bytes (max ${CONFIG.MAX_IDEA_FILE_SIZE}).`
-    );
+  let ideaContent: string;
+  try {
+    const stats = statSync(absPath);
+    if (stats.size > CONFIG.MAX_IDEA_FILE_SIZE) {
+      throw new Error(
+        `Idea file too large: ${stats.size} bytes (max ${CONFIG.MAX_IDEA_FILE_SIZE}).`
+      );
+    }
+    ideaContent = readFileSync(absPath, 'utf-8');
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('too large')) throw err;
+    throw new Error(`Failed to read idea file at ${absPath}: ${err instanceof Error ? err.message : err}`);
   }
-
-  const ideaContent = readFileSync(absPath, 'utf-8');
   console.log(
     `[understandIdea] Read idea file: ${absPath} (${ideaContent.length} chars)`
   );

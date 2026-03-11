@@ -46,9 +46,13 @@ export async function batchReviewTargets(
       'Respond with { "approved": true } to approve all, or { "rejections": [{ "id": "...", "reason": "..." }] } to reject specific targets.',
   });
 
-  // Handle approval
+  // Handle approval — type-narrow the interrupt response before accessing properties
+  const response = typeof userResponse === 'object' && userResponse !== null
+    ? (userResponse as Record<string, unknown>)
+    : null;
+
   if (
-    userResponse.approved === true ||
+    (response && response.approved === true) ||
     (typeof userResponse === 'string' &&
       userResponse.toLowerCase().trim() === 'approve')
   ) {
@@ -64,7 +68,7 @@ export async function batchReviewTargets(
 
   // Handle rejections
   const rejections: Array<{ id: string; reason: string }> =
-    userResponse.rejections ?? [];
+    (response && Array.isArray(response.rejections) ? response.rejections : []) as Array<{ id: string; reason: string }>;
 
   if (rejections.length === 0) {
     // No explicit rejections — treat as approval

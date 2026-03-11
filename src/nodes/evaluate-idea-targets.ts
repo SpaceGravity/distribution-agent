@@ -51,7 +51,7 @@ export async function evaluateIdeaTargets(
   // Build evaluation record
   const record = {
     iteration: newIteration,
-    criteria: state.searchCriteria!,
+    criteria: state.searchCriteria ?? { keywords: [], queries: [], depth: 'default' },
     resultCount: activeTargets.length,
     topResultIds: decision.approvedTargetIds,
     satisfactory: decision.satisfactory,

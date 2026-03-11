@@ -1,5 +1,6 @@
 // exportCsv node — Exports approved targets with outreach drafts to CSV
 
+import { resolve } from 'path';
 import type { DistributionState } from '../state.js';
 import { CONFIG } from '../config.js';
 import { writeCsv } from '../lib/csv-writer.js';
@@ -48,7 +49,18 @@ export async function exportCsv(
     source_post_title: t.sourcePostTitle,
   }));
 
-  writeCsv(CSV_HEADERS, rows, filePath);
+  // Validate output path is within project root
+  const absFilePath = resolve(filePath);
+  const projectRoot = resolve('.');
+  if (!absFilePath.startsWith(projectRoot + '/') && absFilePath !== projectRoot) {
+    throw new Error(`CSV output path outside project root: ${absFilePath}`);
+  }
+
+  try {
+    writeCsv(CSV_HEADERS, rows, filePath);
+  } catch (err) {
+    throw new Error(`Failed to write CSV to ${filePath}: ${err instanceof Error ? err.message : err}`);
+  }
 
   console.log(
     `[exportCsv] Exported ${approvedTargets.length} targets to ${filePath}`

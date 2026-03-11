@@ -3,10 +3,11 @@
 
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
+import { homedir } from 'os';
 import type { DistributionState } from '../state.js';
 
 const MEMORY_DIR = resolve(
-  process.env.HOME ?? '~',
+  homedir(),
   '.distribution-agent'
 );
 const MEMORY_FILE = resolve(MEMORY_DIR, 'search-strategies.json');
@@ -95,8 +96,14 @@ export async function saveMemory(
 
     let strategies: StrategyRecord[] = [];
     if (existsSync(MEMORY_FILE)) {
-      const existing = readFileSync(MEMORY_FILE, 'utf-8');
-      strategies = JSON.parse(existing);
+      try {
+        const existing = readFileSync(MEMORY_FILE, 'utf-8');
+        const parsed = JSON.parse(existing);
+        strategies = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        console.warn('[saveMemory] Corrupted memory file, starting fresh.');
+        strategies = [];
+      }
     }
 
     strategies.push(record);

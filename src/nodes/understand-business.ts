@@ -20,7 +20,7 @@ export async function understandBusiness(
   // Validate and read business file
   const absPath = resolve(filePath);
   const allowedRoot = resolve('.');
-  if (!absPath.startsWith(allowedRoot)) {
+  if (!absPath.startsWith(allowedRoot + '/') && absPath !== allowedRoot) {
     throw new Error('Path traversal detected in business file path.');
   }
   if (!absPath.endsWith('.md')) {
@@ -45,6 +45,10 @@ export async function understandBusiness(
   if (state.toneFilePath) {
     try {
       const tonePath = resolve(state.toneFilePath);
+      // Validate tone file path against same allowed root
+      if (!tonePath.startsWith(allowedRoot + '/') && tonePath !== allowedRoot) {
+        throw new Error('Path traversal detected in tone file path.');
+      }
       toneExamples = readFileSync(tonePath, 'utf-8');
       console.log(
         `[understandBusiness] Read tone file: ${tonePath} (${toneExamples.length} chars)`
