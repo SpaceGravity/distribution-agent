@@ -215,28 +215,20 @@ Both result sets merge into `searchResults` via the existing dedup reducer.
 For enriching targets with external data (follower counts):
 
 ```ts
-// 1. Check API keys — soft-warn if missing, skip those platforms
-const hasRedditKeys = !!CONFIG.REDDIT_CLIENT_ID && !!CONFIG.REDDIT_CLIENT_SECRET;
+// 1. Reddit: public endpoint, no keys needed. X: check bearer token.
 const hasXKey = !!CONFIG.X_BEARER_TOKEN;
-if (!hasRedditKeys) console.warn('Reddit keys missing — skipping Reddit enrichment');
+if (!hasXKey) console.warn('X_BEARER_TOKEN not set — skipping X enrichment');
 
-// 2. Get auth tokens once (only if keys present and targets exist)
-let redditToken: string | null = null;
-if (hasRedditKeys && hasRedditTargets) {
-  try { redditToken = await getRedditAccessToken(...); }
-  catch (err) { console.warn(`Reddit OAuth failed: ${err}`); }
-}
-
-// 3. Process in batches with concurrency limit, passing key flags
+// 2. Process in batches with concurrency limit
 for (let i = 0; i < targets.length; i += CONCURRENCY) {
   const batch = targets.slice(i, i + CONCURRENCY);
-  await Promise.allSettled(batch.map(t => enrichSingle(t, redditToken, hasXKey)));
+  await Promise.allSettled(batch.map(t => enrichSingle(t, hasXKey)));
 }
 
-// 4. Run follower lookup + URL verification in parallel per target
+// 3. Run follower lookup + URL verification in parallel per target
 const [followerCount, isAlive] = await Promise.all([followerPromise, urlPromise]);
 
-// 5. Individual failures → log warning, set null, continue
+// 4. Individual failures → log warning, set null, continue
 ```
 
 Key principles:

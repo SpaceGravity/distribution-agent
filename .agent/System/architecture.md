@@ -164,10 +164,9 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
 - Queries capped at 5 (content) + 3 (community discovery for idea path)
 - All queries run in parallel via `Promise.allSettled()`
 
-### 3. Reddit API (Idea Path Enrichment)
-- OAuth2 client credentials flow → `POST /api/v1/access_token`
-- Subreddit member count → `GET /r/{subreddit}/about`
-- Auth: `REDDIT_CLIENT_ID` + `REDDIT_CLIENT_SECRET` env vars
+### 3. Reddit Public Endpoint (Idea Path Enrichment)
+- Subreddit member count → `GET https://www.reddit.com/r/{subreddit}/about.json`
+- No auth required (public endpoint)
 - Timeout: 10s per request
 
 ### 4. X/Twitter API v2 (Idea Path Enrichment)
@@ -197,8 +196,6 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
 | `DISTRIBUTION_AGENT_DEFAULT_TARGET_COUNT` | 20 | Default number of reply targets |
 | `DISTRIBUTION_AGENT_DB_PATH` | `./distribution-agent.sqlite` | SQLite path |
 | `AUTO_POST_ENABLED` | false | Auto-post replies or manual (clipboard) |
-| `REDDIT_CLIENT_ID` | optional (idea) | Reddit API OAuth client ID — enrichment skipped if missing |
-| `REDDIT_CLIENT_SECRET` | optional (idea) | Reddit API OAuth client secret — enrichment skipped if missing |
 | `X_BEARER_TOKEN` | optional (idea) | X/Twitter API v2 bearer token — enrichment skipped if missing |
 | `DISTRIBUTION_AGENT_CSV_DIR` | `./output` | CSV export directory |
 

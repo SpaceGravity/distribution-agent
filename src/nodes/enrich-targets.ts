@@ -4,7 +4,6 @@
 import type { DistributionState, IdeaTarget } from '../state.js';
 import { CONFIG } from '../config.js';
 import {
-  getRedditAccessToken,
   getSubredditMemberCount,
   getTwitterFollowerCount,
   verifyUrl,
@@ -19,15 +18,7 @@ export async function enrichTargets(
     return {};
   }
 
-  // Check API keys — warn if missing, skip enrichment for those platforms
-  const hasRedditKeys =
-    !!CONFIG.REDDIT_CLIENT_ID && !!CONFIG.REDDIT_CLIENT_SECRET;
   const hasXKey = !!CONFIG.X_BEARER_TOKEN;
-  if (!hasRedditKeys) {
-    console.warn(
-      '[enrichTargets] REDDIT_CLIENT_ID/REDDIT_CLIENT_SECRET not set — skipping Reddit enrichment'
-    );
-  }
   if (!hasXKey) {
     console.warn(
       '[enrichTargets] X_BEARER_TOKEN not set — skipping X enrichment'
@@ -38,20 +29,6 @@ export async function enrichTargets(
     `[enrichTargets] Enriching ${targets.length} targets (concurrency: ${CONFIG.ENRICHMENT_CONCURRENCY})`
   );
 
-  // Get Reddit access token once (only if keys are available and targets exist)
-  let redditToken: string | null = null;
-  const hasRedditTargets = targets.some((t) => t.platform === 'reddit');
-  if (hasRedditKeys && hasRedditTargets) {
-    try {
-      redditToken = await getRedditAccessToken(
-        CONFIG.REDDIT_CLIENT_ID,
-        CONFIG.REDDIT_CLIENT_SECRET
-      );
-    } catch (err) {
-      console.warn(`[enrichTargets] Reddit OAuth failed: ${err}`);
-    }
-  }
-
   // Process targets in batches with concurrency limit
   const enriched: IdeaTarget[] = [];
   for (
@@ -61,7 +38,7 @@ export async function enrichTargets(
   ) {
     const batch = targets.slice(i, i + CONFIG.ENRICHMENT_CONCURRENCY);
     const results = await Promise.allSettled(
-      batch.map((target) => enrichSingle(target, redditToken, hasXKey))
+      batch.map((target) => enrichSingle(target, hasXKey))
     );
 
     for (let j = 0; j < results.length; j++) {
@@ -86,11 +63,10 @@ export async function enrichTargets(
 
 async function enrichSingle(
   target: IdeaTarget,
-  redditToken: string | null,
   hasXKey: boolean
 ): Promise<IdeaTarget> {
   // Run follower lookup and URL verification in parallel
-  const followerPromise = getFollowerCount(target, redditToken, hasXKey);
+  const followerPromise = getFollowerCount(target, hasXKey);
   const urlPromise =
     target.category === 'community_hub' && target.url
       ? verifyUrl(target.url)
@@ -112,13 +88,12 @@ async function enrichSingle(
 
 async function getFollowerCount(
   target: IdeaTarget,
-  redditToken: string | null,
   hasXKey: boolean
 ): Promise<number | null> {
-  if (target.platform === 'reddit' && redditToken) {
+  if (target.platform === 'reddit') {
     const subreddit = extractSubredditName(target.name, target.url);
     if (subreddit) {
-      return getSubredditMemberCount(subreddit, redditToken);
+      return getSubredditMemberCount(subreddit);
     }
   } else if (target.platform === 'x' && hasXKey) {
     const username = extractXUsername(target.name, target.url);

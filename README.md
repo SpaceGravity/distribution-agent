@@ -8,7 +8,7 @@ LangGraph-based automation agent with two modes: **product outreach** (business 
 - **SqliteSaver** checkpointer for persistence
 - **Human-in-the-loop** interrupts for review and approval (6 interrupt points)
 - **Dual-mode graph** — business outreach or idea validation via mode selection
-- **API enrichment** — Reddit/X APIs for follower counts (idea path)
+- **API enrichment** — Reddit (public endpoint) / X API for follower counts (idea path)
 - **CSV export** — RFC 4180 compliant target export (idea path)
 
 ## Setup
@@ -23,11 +23,9 @@ cp .env.example .env  # Add your API keys
 | Var | Both Modes | Business Only | Idea (Optional) |
 |-----|:----------:|:-------------:|:---------------:|
 | `ANTHROPIC_API_KEY` | x | | |
-| `REDDIT_CLIENT_ID` | | | x (enrichment) |
-| `REDDIT_CLIENT_SECRET` | | | x (enrichment) |
 | `X_BEARER_TOKEN` | | | x (enrichment) |
 
-> **Note:** Idea path enrichment API keys are optional. If missing, follower counts are skipped but target discovery still works.
+> **Note:** Reddit enrichment uses a public endpoint (no API keys needed). X enrichment requires a bearer token — if missing, X follower counts are skipped but target discovery still works.
 
 ## Usage
 
@@ -145,7 +143,7 @@ START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> ext
 | `.agent/Lessons/missing-tsconfig.md` | `pnpm typecheck` silently does nothing — no tsconfig.json exists |
 | `.agent/Lessons/dual-mode-graph-pattern.md` | How to add a second path to an existing graph via mode switch |
 | `.agent/Lessons/batch-vs-sequential-review.md` | When to use batch review vs one-by-one review |
-| `.agent/Lessons/api-enrichment-resilience.md` | Soft-warn on missing API keys, fail soft on individual API calls |
+| `.agent/Lessons/api-enrichment-resilience.md` | Prefer zero-auth public endpoints; soft-warn on missing keys, fail soft on individual calls |
 | `.agent/Lessons/no-new-dependencies.md` | Prefer built-in Node.js APIs (fetch, manual CSV) over npm packages |
 | `.agent/Lessons/prompt-parameter-alignment.md` | Prompt functions must accept all data their callers pass |
 | `.agent/Lessons/sentinel-value-filtering.md` | Sentinel strings are truthy — filter them explicitly |

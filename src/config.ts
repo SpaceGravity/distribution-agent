@@ -52,9 +52,7 @@ export const CONFIG = {
   IDEA_MAX_REVIEW_CYCLES: 5,
   MAX_IDEA_FILE_SIZE: 50 * 1024, // 50KB
 
-  // Enrichment API keys (required for idea path)
-  REDDIT_CLIENT_ID: process.env.REDDIT_CLIENT_ID ?? '',
-  REDDIT_CLIENT_SECRET: process.env.REDDIT_CLIENT_SECRET ?? '',
+  // Enrichment API keys (optional — X enrichment needs a bearer token)
   X_BEARER_TOKEN: process.env.X_BEARER_TOKEN ?? '',
 
   ENRICHMENT_CONCURRENCY: 10,
