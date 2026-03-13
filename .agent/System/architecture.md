@@ -19,7 +19,7 @@ Both paths share a single graph with a mode switch at `getInput`.
 | Schema validation | `zod` ^4 (registry-based reducers) |
 | Persistence | `@langchain/langgraph-checkpoint-sqlite` (SQLite) |
 | Search | `last30days.py` skill (Python subprocess) |
-| Enrichment APIs | Reddit OAuth2, X API v2 (built-in `fetch`) |
+| Enrichment APIs | Reddit public endpoint, X API v2 (built-in `fetch`) |
 | CSV export | Manual RFC 4180 writer (no external library) |
 | Package manager | pnpm v10 |
 | Dev tooling | tsx, ESLint, Prettier, LangGraph CLI/Studio |
@@ -65,7 +65,7 @@ src/
 │   ├── llm.ts                      # Shared ChatAnthropic instance
 │   ├── prompts.ts                  # 11 prompt functions (pure, no LLM calls)
 │   ├── search-runner.ts            # Subprocess wrapper for last30days.py
-│   ├── enrichment.ts               # Reddit OAuth, X API, URL verification
+│   ├── enrichment.ts               # Reddit public endpoint, X API, URL verification
 │   └── csv-writer.ts               # RFC 4180 CSV serialization
 └── test-run.ts, test-advanced.ts
 ```

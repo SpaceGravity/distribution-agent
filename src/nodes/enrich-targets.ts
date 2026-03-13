@@ -6,7 +6,6 @@ import { CONFIG } from '../config.js';
 import {
   getSubredditMemberCount,
   getTwitterFollowerCount,
-  verifyUrl,
 } from '../lib/enrichment.js';
 
 export async function enrichTargets(
@@ -65,24 +64,7 @@ async function enrichSingle(
   target: IdeaTarget,
   hasXKey: boolean
 ): Promise<IdeaTarget> {
-  // Run follower lookup and URL verification in parallel
-  const followerPromise = getFollowerCount(target, hasXKey);
-  const urlPromise =
-    target.category === 'community_hub' && target.url
-      ? verifyUrl(target.url)
-      : Promise.resolve(true);
-
-  const [followerCount, isAlive] = await Promise.all([
-    followerPromise,
-    urlPromise,
-  ]);
-
-  if (!isAlive) {
-    console.warn(
-      `[enrichTargets] Dead URL for community ${target.name}: ${target.url}`
-    );
-  }
-
+  const followerCount = await getFollowerCount(target, hasXKey);
   return { ...target, followerCount };
 }
 

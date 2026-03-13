@@ -101,9 +101,7 @@ IDEA_TARGET_CAP: 50,
 IDEA_MAX_REVIEW_CYCLES: 5,
 MAX_IDEA_FILE_SIZE: 50 * 1024,
 
-// Enrichment API keys (required — blocks if missing)
-REDDIT_CLIENT_ID: process.env.REDDIT_CLIENT_ID ?? '',
-REDDIT_CLIENT_SECRET: process.env.REDDIT_CLIENT_SECRET ?? '',
+// Enrichment API keys (X is optional, Reddit uses public endpoint)
 X_BEARER_TOKEN: process.env.X_BEARER_TOKEN ?? '',
 
 ENRICHMENT_CONCURRENCY: 10,
@@ -145,8 +143,7 @@ CSV_OUTPUT_DIR: resolve(process.env.DISTRIBUTION_AGENT_CSV_DIR ?? './output'),
 - **Output:** `{ ideaTargets }` -> static edge to `enrichTargets`
 
 ### 5. `enrichTargets` (`src/nodes/enrich-targets.ts`)
-- **Validates API keys first** — if `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, or `X_BEARER_TOKEN` is empty, throws clear error listing required env vars
-- Reddit targets: call Reddit API `GET /r/{subreddit}/about` -> extract `subscribers`
+- Reddit targets: call public `GET /r/{subreddit}/about.json` -> extract `subscribers` (no auth required)
 - X targets: call X API v2 `GET /users/by/username/{username}?user.fields=public_metrics` -> extract `followers_count`
 - Other platforms: `followerCount: null`
 - Community URL verification: HEAD request, filter out non-200
@@ -212,8 +209,7 @@ CSV_OUTPUT_DIR: resolve(process.env.DISTRIBUTION_AGENT_CSV_DIR ?? './output'),
 ## New Library Files
 
 ### `src/lib/enrichment.ts`
-- `getRedditAccessToken(clientId, clientSecret)` — OAuth2 client credentials flow
-- `getSubredditMemberCount(subreddit, accessToken)` — GET `/r/{subreddit}/about`
+- `getSubredditMemberCount(subreddit)` — GET `/r/{subreddit}/about.json` (public, no auth)
 - `getTwitterFollowerCount(username, bearerToken)` — GET `/users/by/username/{username}`
 - `verifyUrl(url)` — HEAD request, returns true if 200-399
 - Uses built-in `fetch` (Node 20+), no new dependencies
@@ -324,7 +320,7 @@ CSV_OUTPUT_DIR: resolve(process.env.DISTRIBUTION_AGENT_CSV_DIR ?? './output'),
 - [x] `src/index.ts` — add nodes + edges
 
 ### Phase 4: Enrichment
-- [x] `src/lib/enrichment.ts` — Reddit OAuth + X API + URL verification
+- [x] `src/lib/enrichment.ts` — Reddit public endpoint + X API + URL verification
 - [x] `src/nodes/enrich-targets.ts`
 - [x] `src/index.ts` — add node + edge
 

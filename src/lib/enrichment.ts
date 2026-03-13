@@ -64,7 +64,7 @@ function isPrivateUrl(urlStr: string): boolean {
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return true;
     // Block obvious private/internal hostnames
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return true;
-    if (hostname === '0.0.0.0' || hostname === '[::1]') return true;
+    if (hostname === '0.0.0.0') return true;
     // Block metadata endpoints
     if (hostname === '169.254.169.254') return true;
     // Block private IP ranges
