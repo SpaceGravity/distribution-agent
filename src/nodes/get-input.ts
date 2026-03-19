@@ -25,7 +25,12 @@ export async function getInput(
       `[getInput] Using pre-populated idea inputs: ${state.ideaFilePath}`
     );
     return new Command({
-      update: {},
+      update: {
+        selectedPlatforms:
+          state.selectedPlatforms.length > 0
+            ? state.selectedPlatforms
+            : [...CONFIG.SUPPORTED_PLATFORMS],
+      },
       goto: 'understandIdea',
     });
   }

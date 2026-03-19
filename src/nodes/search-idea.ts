@@ -13,7 +13,10 @@ export async function searchIdea(
 
   const { queries, depth } = state.searchCriteria;
   // Use user's selected platforms, not LLM-generated platformFilters
-  const platformFilters = state.selectedPlatforms;
+  // Always include reddit — idea mode depends on community discovery
+  const platformFilters = state.selectedPlatforms.includes('reddit')
+    ? state.selectedPlatforms
+    : [...state.selectedPlatforms, 'reddit'];
   const communityQueries = state.ideaCommunityQueries ?? [];
 
   // Cap content queries to 5
