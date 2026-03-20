@@ -192,3 +192,27 @@ const result = await graph.invoke(
   config
 );
 ```
+
+## Resuming Interrupts in LangGraph Studio UI
+
+When running the graph in Studio, code-level `interrupt()` calls pause the graph and show a resume panel at the bottom of the right-side thread panel.
+
+### Resume panel location
+The panel appears below all node output — which can be very long (search results, target data). Scroll to the absolute bottom of the right panel to find it. The panel shows: **"Provide a value to resume execution for {nodeName}"**.
+
+### Resume value format
+The Studio resume field is a JSON editor. Enter values as valid JSON:
+- String: `"approve"` (with quotes)
+- Object: `{ "approved": true }`
+- Guidance: `"Try searching for Discord communities"`
+
+### Known issue: Polly icon blocks Resume button
+The LangSmith Polly assistant icon overlaps the Resume button. Use browser DevTools console:
+```javascript
+document.querySelectorAll('button').forEach(b => {
+  if (b.textContent.trim() === 'Resume') b.click();
+});
+```
+
+### Full Studio operations guide
+See `.agent/SOP/langgraph-studio-operations.md` for the complete Studio workflow including input formats, interrupt handling, and output verification.

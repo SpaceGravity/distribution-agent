@@ -236,7 +236,10 @@ export async function searchPlatforms(
         }
 
         try {
-          const report: RawReport = JSON.parse(stdout);
+          // Strip any trailing non-JSON content (e.g. "WEBSEARCH REQUIRED" text)
+          const jsonEnd = stdout.lastIndexOf('}');
+          const cleanStdout = jsonEnd >= 0 ? stdout.substring(0, jsonEnd + 1) : stdout;
+          const report: RawReport = JSON.parse(cleanStdout);
           const results: SearchResultItem[] = [];
 
           // Iterate over all platform arrays in the report

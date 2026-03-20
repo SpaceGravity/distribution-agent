@@ -140,6 +140,7 @@ START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> ext
 | `.agent/SOP/subprocess-and-search.md` | Python subprocess, last30days integration, query capping |
 | `.agent/SOP/testing-and-debugging.md` | Test patterns, common bugs, debugging tips |
 | `.agent/SOP/typescript-esm-and-tooling.md` | ESM imports, pnpm, tsx, ESLint, LangGraph Studio |
+| `.agent/SOP/langgraph-studio-operations.md` | Running the agent in Studio: input, interrupts, resume, output verification |
 | `.agent/Lessons/missing-tsconfig.md` | `pnpm typecheck` silently does nothing — no tsconfig.json exists |
 | `.agent/Lessons/dual-mode-graph-pattern.md` | How to add a second path to an existing graph via mode switch |
 | `.agent/Lessons/batch-vs-sequential-review.md` | When to use batch review vs one-by-one review |
@@ -147,6 +148,13 @@ START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> ext
 | `.agent/Lessons/no-new-dependencies.md` | Prefer built-in Node.js APIs (fetch, manual CSV) over npm packages |
 | `.agent/Lessons/prompt-parameter-alignment.md` | Prompt functions must accept all data their callers pass |
 | `.agent/Lessons/sentinel-value-filtering.md` | Sentinel strings are truthy — filter them explicitly |
+| `.agent/Lessons/browser-automation-studio.md` | Browser automation lessons: JS scroll/click, Polly icon, extension disconnects |
+
+### Skills
+
+| Skill | Location | Trigger |
+|-------|----------|---------|
+| `langgraph-studio-runner` | `~/.claude/skills/langgraph-studio-runner/SKILL.md` | "run in studio", "run idea path", "run business path" |
 
 ### Related Documentation
 

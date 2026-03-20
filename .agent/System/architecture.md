@@ -176,8 +176,11 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
 
 ### 5. LangGraph Studio
 - Config: `langgraph.json` → `src/index.ts:graph`
-- Launch: `pnpm dev`
+- Launch: `pnpm dev` (runs on `http://localhost:2024`)
+- Studio URL: `https://smith.langchain.com/studio?baseUrl=http://localhost:2024`
 - Visual debugging, interrupt handling, state editing
+- **Browser automation skill**: `~/.claude/skills/langgraph-studio-runner/SKILL.md` automates the full Studio flow (input submission, interrupt resume, output verification)
+- **Operations SOP**: `.agent/SOP/langgraph-studio-operations.md` covers the full manual workflow
 
 ### 6. File System
 - Business description: user-provided `.md` file (max 50KB)

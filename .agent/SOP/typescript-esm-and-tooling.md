@@ -87,27 +87,37 @@ if (result.__interrupt__?.length > 0) { ... }
 
 ### Starting
 ```bash
-npx pnpm dev
-# or
-npx pnpx @langchain/langgraph-cli dev
+pnpm dev
 ```
+
+If you see `EADDRINUSE`, Studio is already running on port 2024 — navigate directly to the Studio URL.
 
 ### Configuration
 `langgraph.json` maps graph names to exports:
 ```json
 {
   "graphs": {
-    "distribution-agent": "src/distribution-agent/index.ts:graph"
+    "distribution-agent": "src/index.ts:graph"
   },
   "env": ".env"
 }
 ```
 
+### Studio URL
+```
+https://smith.langchain.com/studio?baseUrl=http://localhost:2024
+```
+
 ### Hot reload
 Studio watches for file changes and auto-restarts. You'll see:
 ```
-[tsx] change in ./src/distribution-agent/nodes/evaluate.ts Restarting...
+[tsx] change in ./src/nodes/evaluate.ts Restarting...
 ```
 
 ### Dependency version warnings
 Studio may warn about `@langchain/langgraph-checkpoint` version mismatch. This is usually safe to ignore for development but should be resolved for production.
+
+### Running the Agent in Studio
+For the full operational workflow (submitting input, handling interrupts, verifying output), see:
+- `.agent/SOP/langgraph-studio-operations.md` — Step-by-step SOP
+- `~/.claude/skills/langgraph-studio-runner/SKILL.md` — Browser automation skill (trigger: "run in studio")
