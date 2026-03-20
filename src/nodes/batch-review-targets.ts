@@ -2,8 +2,15 @@
 // User can approve all or reject specific targets (triggers backfill loop)
 
 import { interrupt, Command } from '@langchain/langgraph';
-import type { DistributionState, IdeaRejectionNote } from '../state.js';
+import type { DistributionState, IdeaRejectionNote, IdeaTarget } from '../state.js';
 import { CONFIG } from '../config.js';
+
+/** Marks all pending targets as approved; leaves others unchanged. */
+function approvePendingTargets(targets: IdeaTarget[]): IdeaTarget[] {
+  return targets.map((t) =>
+    t.status === 'pending' ? { ...t, status: 'approved' as const } : t
+  );
+}
 
 export async function batchReviewTargets(
   state: DistributionState
@@ -16,7 +23,7 @@ export async function batchReviewTargets(
       `[batchReviewTargets] Max review cycles (${CONFIG.IDEA_MAX_REVIEW_CYCLES}) reached. Proceeding to outreach.`
     );
     return new Command({
-      update: {},
+      update: { ideaTargets: approvePendingTargets(state.ideaTargets) },
       goto: 'generateOutreach',
     });
   }
@@ -57,11 +64,8 @@ export async function batchReviewTargets(
       userResponse.toLowerCase().trim() === 'approve')
   ) {
     console.log('[batchReviewTargets] All targets approved.');
-    const updatedTargets = state.ideaTargets.map((t) =>
-      t.status === 'pending' ? { ...t, status: 'approved' as const } : t
-    );
     return new Command({
-      update: { ideaTargets: updatedTargets },
+      update: { ideaTargets: approvePendingTargets(state.ideaTargets) },
       goto: 'generateOutreach',
     });
   }
@@ -73,10 +77,10 @@ export async function batchReviewTargets(
   if (rejections.length === 0) {
     // No explicit rejections — treat as approval
     console.log(
-      '[batchReviewTargets] No rejections specified. Proceeding.'
+      '[batchReviewTargets] No rejections specified. Approving all pending targets.'
     );
     return new Command({
-      update: {},
+      update: { ideaTargets: approvePendingTargets(state.ideaTargets) },
       goto: 'generateOutreach',
     });
   }
@@ -96,9 +100,7 @@ export async function batchReviewTargets(
   });
 
   // Remove rejected targets
-  const updatedTargets = state.ideaTargets
-    .filter((t) => !rejectedIds.has(t.id))
-    .map((t) => t);
+  const updatedTargets = state.ideaTargets.filter((t) => !rejectedIds.has(t.id));
 
   console.log(
     `[batchReviewTargets] ${rejections.length} targets rejected. Backfilling via generateIdeaCriteria.`

@@ -141,29 +141,45 @@ Then run `npx pnpm rebuild better-sqlite3`.
 For reviewing all items at once instead of one-by-one:
 
 ```ts
+/** Extract helper — avoids triplicating the approval map across all exit paths. */
+function approvePendingItems<T extends { status: string }>(items: T[]): T[] {
+  return items.map((t) =>
+    t.status === 'pending' ? { ...t, status: 'approved' as const } : t
+  );
+}
+
 export async function batchReviewTargets(state: State): Promise<Command> {
-  // Force-proceed after max cycles
+  // Force-proceed after max cycles — MUST still approve pending items so downstream
+  // nodes that filter on status === 'approved' actually find targets to work with.
   if (state.reviewCycle >= MAX_CYCLES) {
-    return new Command({ update: {}, goto: 'nextNode' });
+    return new Command({
+      update: { items: approvePendingItems(state.items) },
+      goto: 'nextNode',
+    });
   }
 
-  const items = state.items.filter(t => t.status === 'approved' || t.status === 'pending');
+  const reviewable = state.items.filter(t => t.status === 'approved' || t.status === 'pending');
 
   const response = interrupt({
     action: 'Review all items',
-    items: items.map(t => ({ id: t.id, name: t.name, ... })),
+    items: reviewable.map(t => ({ id: t.id, name: t.name, ... })),
     instructions: 'Respond with { "approved": true } or { "rejections": [{ "id": "...", "reason": "..." }] }',
   });
 
-  if (response.approved === true) {
-    return new Command({ update: {}, goto: 'nextNode' });
+  // Explicit approval OR empty/no-rejection response — both treat as full approval
+  const rejections = (response?.rejections ?? []) as Array<{ id: string; reason: string }>;
+  if (response?.approved === true || rejections.length === 0) {
+    return new Command({
+      update: { items: approvePendingItems(state.items) },
+      goto: 'nextNode',
+    });
   }
 
   // Process rejections → backfill loop
-  const rejections = response.rejections ?? [];
+  const rejectedIds = new Set(rejections.map(r => r.id));
   return new Command({
     update: {
-      items: items.filter(t => !rejectedIds.has(t.id)),
+      items: state.items.filter(t => !rejectedIds.has(t.id)),
       rejectionNotes: rejections.map(r => ({ ... })),
       reviewCycle: state.reviewCycle + 1,
     },
@@ -174,6 +190,7 @@ export async function batchReviewTargets(state: State): Promise<Command> {
 
 Key differences from sequential review:
 - All items presented at once (not one-by-one)
+- **Every approval exit path must explicitly set `status: 'approved'` on pending items** — `update: {}` leaves them as `'pending'`, causing downstream filters to find nothing
 - Rejections trigger a backfill search loop (not just skip)
 - Cycle counter prevents infinite loops
 - Declared with `{ ends: ['nextNode', 'backfillNode'] }` for two possible destinations

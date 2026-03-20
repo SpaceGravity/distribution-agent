@@ -33,6 +33,25 @@ Batch: routes to next stage or back to refinement (backfill)
 })
 ```
 
+## Critical Gotcha: Every approval path must update item status
+
+When a batch review node approves (explicit `approved: true`, empty `{}` resume, or max-cycles force-proceed), **you must map pending items to `approved`**. Sending `update: {}` leaves items in `'pending'` state. Downstream nodes (`generateOutreach`, `exportCsv`) filter on `status === 'approved'` — they will find nothing and silently produce no output.
+
+**Wrong:**
+```ts
+return new Command({ update: {}, goto: 'generateOutreach' }); // items stay 'pending'!
+```
+
+**Right:**
+```ts
+const approved = state.items.map(t =>
+  t.status === 'pending' ? { ...t, status: 'approved' as const } : t
+);
+return new Command({ update: { items: approved }, goto: 'generateOutreach' });
+```
+
+Extract a shared helper when this pattern appears in multiple exit paths to avoid drift.
+
 ## Lesson
 Don't force one pattern onto both use cases. Sequential review is better when each item needs custom action (approve/edit/reject). Batch review is better when the user evaluates the collection as a whole.
 
