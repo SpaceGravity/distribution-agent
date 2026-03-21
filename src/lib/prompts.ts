@@ -536,7 +536,7 @@ ${results
 For each result, extract:
 - **Person targets**: The author of the post (if they appear to experience the problem or have relevant expertise). Use their handle/username as the name.
 - **Community targets**: The subreddit, forum, or community where the post appeared (if it's a relevant community hub).
-- **From web articles about communities**: Extract the community names and URLs mentioned in the article.
+- **From web articles about communities**: Extract the community names and URLs mentioned in the article. Set the platform to the TARGET's actual platform (e.g., "reddit" for subreddits, "x" for Twitter/X accounts), NOT "web".
 
 Assign each target a category:
 - \`potential_customer\` — Someone who appears to experience the problem
@@ -551,7 +551,7 @@ Return as structured JSON:
   "targets": [
     {
       "name": string,           // handle, username, or community name
-      "platform": string,       // reddit, x, hn, web, etc.
+      "platform": string,       // The target's actual platform: reddit, x, hn, web — use the target's platform, not the source article's
       "url": string,            // profile URL or community URL
       "category": "potential_customer" | "domain_expert" | "community_hub" | "competitor_user",
       "whyRelevant": string,    // One sentence explaining why this target is relevant
