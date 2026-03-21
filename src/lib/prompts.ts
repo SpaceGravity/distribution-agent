@@ -511,7 +511,7 @@ export function extractTargetsPrompt(
   selectedPlatforms?: string[]
 ): string {
   const platformFilter = selectedPlatforms && selectedPlatforms.length > 0
-    ? `\n\nIMPORTANT: ONLY extract targets on these platforms: ${selectedPlatforms.join(', ')}. Discard targets on other platforms (Discord, Slack, web blogs, etc.).`
+    ? `\n\nIMPORTANT: ONLY extract targets on these platforms: ${selectedPlatforms.join(', ')}. Discard targets on other platforms (Discord, Slack, web blogs, etc.). Return platform names in exact lowercase: ${selectedPlatforms.join(', ')}.`
     : '';
 
   return `You are an expert at identifying potential validation targets from search results. Extract people and communities who are relevant to testing a problem hypothesis.${platformFilter}
