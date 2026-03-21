@@ -417,7 +417,8 @@ export function ideaCriteriaPrompt(
   ideaUnderstanding: IdeaUnderstanding,
   rejectionNotes?: IdeaRejectionNote[],
   evaluationHistory?: EvaluationRecord[],
-  userGuidance?: string
+  userGuidance?: string,
+  selectedPlatforms?: string[]
 ): string {
   let prompt = `You are an expert at customer discovery and community research. Generate search queries to find people and communities related to a problem hypothesis.
 
@@ -429,6 +430,12 @@ Existing Solutions: ${ideaUnderstanding.existingSolutions.join(', ')}
 Keywords: ${ideaUnderstanding.keywords.join(', ')}
 Validation Goals: ${ideaUnderstanding.validationGoals.join('; ')}
 </idea_understanding>`;
+
+  if (selectedPlatforms && selectedPlatforms.length > 0) {
+    prompt += `
+
+<selected_platforms>${selectedPlatforms.join(', ')}</selected_platforms>`;
+  }
 
   if (evaluationHistory && evaluationHistory.length > 0) {
     prompt += `
@@ -474,7 +481,7 @@ Generate TWO types of search queries:
 
 1. **Content queries** (max 5): Find posts/threads by people discussing the pain point. Use the language and terminology real people would use when describing this problem.
 
-2. **Community-discovery queries** (max 3): Meta-queries to find relevant communities themselves, like "best subreddits for X", "top Discord servers for Y", "forums for Z".
+2. **Community-discovery queries** (max 3): Meta-queries to find communities on the user's SELECTED PLATFORMS (see <selected_platforms> above). For reddit → "best subreddits for X". For x → "top Twitter/X accounts for X". Do NOT generate community queries for platforms the user did not select.
 
 Return as structured JSON:
 {
@@ -500,9 +507,14 @@ IMPORTANT:
  */
 export function extractTargetsPrompt(
   results: SearchResultItem[],
-  ideaUnderstanding: IdeaUnderstanding
+  ideaUnderstanding: IdeaUnderstanding,
+  selectedPlatforms?: string[]
 ): string {
-  return `You are an expert at identifying potential validation targets from search results. Extract people and communities who are relevant to testing a problem hypothesis.
+  const platformFilter = selectedPlatforms && selectedPlatforms.length > 0
+    ? `\n\nIMPORTANT: ONLY extract targets on these platforms: ${selectedPlatforms.join(', ')}. Discard targets on other platforms (Discord, Slack, web blogs, etc.).`
+    : '';
+
+  return `You are an expert at identifying potential validation targets from search results. Extract people and communities who are relevant to testing a problem hypothesis.${platformFilter}
 
 <idea_understanding>
 Problem Hypothesis: ${ideaUnderstanding.problemHypothesis}

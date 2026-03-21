@@ -102,14 +102,34 @@ export async function extractTargets(
   }
 
   const structuredLlm = llm.withStructuredOutput(ExtractionOutputSchema);
-  const prompt = extractTargetsPrompt(topResults, state.ideaUnderstanding);
+  const prompt = extractTargetsPrompt(
+    topResults,
+    state.ideaUnderstanding,
+    state.selectedPlatforms
+  );
   const extraction = await structuredLlm.invoke(prompt);
+
+  // Hard-filter: only keep targets whose platform is in selectedPlatforms
+  const allowedPlatforms = new Set(
+    state.selectedPlatforms.map((p) => p.toLowerCase())
+  );
+  const filteredTargets = allowedPlatforms.size > 0
+    ? extraction.targets.filter((t) =>
+        allowedPlatforms.has(t.platform.toLowerCase())
+      )
+    : extraction.targets;
+
+  if (filteredTargets.length < extraction.targets.length) {
+    console.log(
+      `[extractTargets] Platform filter removed ${extraction.targets.length - filteredTargets.length} off-platform targets`
+    );
+  }
 
   // Deduplicate by platform + normalized name and assign IDs
   const seen = new Set<string>();
   const ideaTargets: IdeaTarget[] = [];
 
-  for (const t of extraction.targets) {
+  for (const t of filteredTargets) {
     const key = `${t.platform}:${t.name.toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);

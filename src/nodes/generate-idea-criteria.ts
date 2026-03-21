@@ -29,7 +29,8 @@ export async function generateIdeaCriteria(
     state.evaluationHistory.length > 0
       ? state.evaluationHistory
       : undefined,
-    state.userGuidance ?? undefined
+    state.userGuidance ?? undefined,
+    state.selectedPlatforms
   );
 
   const result = await structuredLlm.invoke(prompt);

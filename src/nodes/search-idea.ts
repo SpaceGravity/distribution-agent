@@ -12,6 +12,9 @@ export async function searchIdea(
   }
 
   const { queries, depth } = state.searchCriteria;
+  // Cap depth to 'default' — 'deep' causes timeout in last30days.py enrichment
+  // (8 posts x ~30s each = 240s, exceeds the 120s future timeout)
+  const effectiveDepth = depth === 'deep' ? 'default' : depth;
   // Use user's selected platforms, not LLM-generated platformFilters
   // Always include reddit — idea mode depends on community discovery
   const platformFilters = state.selectedPlatforms.includes('reddit')
@@ -27,7 +30,7 @@ export async function searchIdea(
 
   // Run content queries on user-selected platforms
   const contentPromises = cappedContentQueries.map((query) =>
-    searchPlatforms(query, platformFilters, depth)
+    searchPlatforms(query, platformFilters, effectiveDepth)
   );
 
   // Run community-discovery queries on web only
