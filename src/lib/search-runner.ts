@@ -240,6 +240,9 @@ export async function searchPlatforms(
           VIRTUAL_ENV: process.env.VIRTUAL_ENV,
           LANG: process.env.LANG,
           LC_ALL: process.env.LC_ALL,
+          // Pass xAI API key for X search via last30days.py
+          // last30days.py reads XAI_API_KEY, not X_BEARER_TOKEN
+          XAI_API_KEY: CONFIG.X_BEARER_TOKEN || undefined,
         },
       },
       (error, stdout, stderr) => {

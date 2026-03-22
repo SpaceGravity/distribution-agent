@@ -132,6 +132,7 @@ START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> ext
 | Idea path uses `--quick` depth | `default` depth enriches top posts with comments (90s+), which triggers the script's global 180s timeout and discards ALL results. `quick` skips enrichment entirely. |
 | Content searches run per-platform to isolate timeouts | `searchIdea` runs one subprocess per platform per query. Without this, a single platform timeout (e.g. X rate limit at 60s) triggers the global kill and discards results from other platforms. |
 | `askIdeaHelp` supports "proceed" to skip to review | After max iterations, the user can type "proceed" (or similar intent) to route directly to `batchReviewTargets` with existing targets, instead of always looping back to `refineIdeaSearch`. |
+| xAI model aliases can go stale | xAI renames models without notice (e.g. `grok-4-1-fast` became `grok-4-1-fast-non-reasoning`). If X search returns 0 results, verify the alias in `last30days/scripts/lib/models.py` against `GET /v1/models` and clear `~/.cache/last30days/model_selection.json`. |
 
 ## Documentation Index
 
@@ -159,6 +160,7 @@ START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> ext
 | `.agent/Lessons/sentinel-value-filtering.md` | Sentinel strings are truthy — filter them explicitly |
 | `.agent/Lessons/browser-automation-studio.md` | Browser automation lessons: JS scroll/click, Polly icon, extension disconnects |
 | `.agent/Lessons/search-query-hygiene.md` | LLM queries must not include `site:` operators; per-platform isolation; quick depth for idea path |
+| `.agent/Lessons/external-api-model-aliases.md` | External API model IDs can change without notice; verify against `/v1/models` endpoint |
 
 ### Skills
 
