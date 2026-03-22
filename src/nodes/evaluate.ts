@@ -64,10 +64,14 @@ export async function evaluate(state: DistributionState): Promise<Command> {
   if (decision.satisfactory) {
     // Filter results to only LLM-approved relevant ones
     const approvedIds = new Set(decision.topResultIds ?? []);
-    const filteredResults =
-      approvedIds.size > 0
-        ? state.searchResults.filter((r) => approvedIds.has(r.id))
-        : topResults; // fallback: use top results by score if no IDs provided
+    let filteredResults: typeof topResults;
+    if (approvedIds.size > 0) {
+      filteredResults = state.searchResults.filter((r) => approvedIds.has(r.id));
+    } else {
+      // LLM said satisfactory but returned no IDs — conservative fallback to top 10
+      console.warn('[evaluate] LLM marked satisfactory but returned no topResultIds. Using top 10 by score as fallback.');
+      filteredResults = topResults.slice(0, 10);
+    }
 
     console.log(
       `[evaluate] Approved ${filteredResults.length} relevant results out of ${state.searchResults.length} total`

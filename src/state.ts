@@ -195,7 +195,7 @@ export const DistributionStateSchema = z.object({
   iterationCount: z.number().register(registry, { default: () => 0 }),
   searchSatisfactory: z.boolean().register(registry, { default: () => false }),
 
-  // User help (after 5 failures)
+  // User help (after max iteration failures)
   userGuidance: z.string().optional(),
 
   // Target rejection notes (feedback on unsuitable targets)
@@ -272,6 +272,7 @@ export const DistributionStateSchema = z.object({
     default: () => [],
   }),
   ideaReviewCycle: z.number().register(registry, { default: () => 0 }),
+  backfillCount: z.number().optional(),
   ideaCommunityQueries: z.array(z.string()).optional(),
   csvOutputPath: z.string().optional(),
 });

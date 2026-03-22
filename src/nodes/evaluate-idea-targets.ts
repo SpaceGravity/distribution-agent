@@ -12,6 +12,7 @@ const IdeaEvaluationDecisionSchema = z.object({
   satisfactory: z.boolean(),
   reasoning: z.string(),
   approvedTargetIds: z.array(z.string()),
+  rejectedTargetIds: z.array(z.string()).optional(),
   suggestedRefinements: z.string().optional(),
 });
 
@@ -64,11 +65,14 @@ export async function evaluateIdeaTargets(
   );
 
   if (decision.satisfactory) {
-    // Mark approved targets
+    // Mark approved and explicitly rejected targets
     const approvedIds = new Set(decision.approvedTargetIds);
-    const updatedTargets = state.ideaTargets.map((t) =>
-      approvedIds.has(t.id) ? { ...t, status: 'approved' as const } : t
-    );
+    const rejectedByLlm = new Set(decision.rejectedTargetIds ?? []);
+    const updatedTargets = state.ideaTargets.map((t) => {
+      if (approvedIds.has(t.id)) return { ...t, status: 'approved' as const };
+      if (rejectedByLlm.has(t.id)) return { ...t, status: 'rejected' as const, rejectionReason: 'LLM evaluation' };
+      return t; // not mentioned = stays pending for next eval
+    });
 
     return new Command({
       update: {

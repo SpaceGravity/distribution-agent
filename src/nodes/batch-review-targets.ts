@@ -24,7 +24,7 @@ export async function batchReviewTargets(
     );
     return new Command({
       update: { ideaTargets: approvePendingTargets(state.ideaTargets) },
-      goto: 'generateOutreach',
+      goto: 'enrichTargets',
     });
   }
 
@@ -66,7 +66,7 @@ export async function batchReviewTargets(
     console.log('[batchReviewTargets] All targets approved.');
     return new Command({
       update: { ideaTargets: approvePendingTargets(state.ideaTargets) },
-      goto: 'generateOutreach',
+      goto: 'enrichTargets',
     });
   }
 
@@ -81,7 +81,7 @@ export async function batchReviewTargets(
     );
     return new Command({
       update: { ideaTargets: approvePendingTargets(state.ideaTargets) },
-      goto: 'generateOutreach',
+      goto: 'enrichTargets',
     });
   }
 
@@ -102,8 +102,13 @@ export async function batchReviewTargets(
   // Remove rejected targets
   const updatedTargets = state.ideaTargets.filter((t) => !rejectedIds.has(t.id));
 
+  // Calculate how many new targets the next search should find
+  const targetCount = state.targetCount ?? CONFIG.DEFAULT_TARGET_COUNT;
+  const remaining = updatedTargets.filter((t) => t.status === 'approved' || t.status === 'pending').length;
+  const backfillCount = Math.max(0, targetCount - remaining);
+
   console.log(
-    `[batchReviewTargets] ${rejections.length} targets rejected. Backfilling via generateIdeaCriteria.`
+    `[batchReviewTargets] ${rejections.length} targets rejected. Backfilling ${backfillCount} targets via generateIdeaCriteria.`
   );
 
   return new Command({
@@ -111,6 +116,7 @@ export async function batchReviewTargets(
       ideaTargets: updatedTargets,
       ideaRejectionNotes: rejectionNotes,
       ideaReviewCycle: cycle + 1,
+      backfillCount,
     },
     goto: 'generateIdeaCriteria',
   });

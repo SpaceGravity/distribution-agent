@@ -75,7 +75,7 @@ export const graph = new StateGraph(DistributionStateSchema)
   .addNode('refineIdeaSearch', refineIdeaSearch)
   .addNode('askIdeaHelp', askIdeaHelp, { ends: ['refineIdeaSearch'] })
   .addNode('batchReviewTargets', batchReviewTargets, {
-    ends: ['generateOutreach', 'generateIdeaCriteria'],
+    ends: ['enrichTargets', 'generateIdeaCriteria'],
   })
   .addNode('generateOutreach', generateOutreach)
   .addNode('reviewOutreach', reviewOutreach, { ends: ['exportCsv'] })
@@ -94,9 +94,9 @@ export const graph = new StateGraph(DistributionStateSchema)
   .addEdge('understandIdea', 'generateIdeaCriteria')
   .addEdge('generateIdeaCriteria', 'searchIdea')
   .addEdge('searchIdea', 'extractTargets')
-  .addEdge('extractTargets', 'enrichTargets')
-  .addEdge('enrichTargets', 'evaluateIdeaTargets')
+  .addEdge('extractTargets', 'evaluateIdeaTargets')
   .addEdge('refineIdeaSearch', 'searchIdea')
+  .addEdge('enrichTargets', 'generateOutreach')
   .addEdge('generateOutreach', 'reviewOutreach')
   .addEdge('exportCsv', 'saveMemory')
 

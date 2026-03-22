@@ -1,49 +1,14 @@
-// saveMemory node — Persists the winning search strategy for future reference
-// Uses a local JSON file for cross-session memory (LangGraph Store integration TBD)
+// saveMemory node — Logs run summary to console
+// File I/O removed: search-strategies.json was write-only dead code (never read)
 
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { homedir } from 'os';
 import type { DistributionState } from '../state.js';
-
-const MEMORY_DIR = resolve(
-  homedir(),
-  '.distribution-agent'
-);
-const MEMORY_FILE = resolve(MEMORY_DIR, 'search-strategies.json');
-
-interface StrategyRecord {
-  timestamp: string;
-  mode: 'business' | 'idea';
-  businessSummary: string;
-  platforms: string[];
-  winningCriteria: {
-    keywords: string[];
-    queries: string[];
-    depth: string;
-  };
-  iterationsUsed: number;
-  totalResultsFound: number;
-  repliesGenerated: number;
-  repliesPosted: number;
-  targetRejectionPatterns?: string[];
-  // Idea-specific fields
-  ideaSummary?: string;
-  targetsDiscovered?: number;
-  targetCategories?: Record<string, number>;
-  ideaRejectionPatterns?: string[];
-}
 
 export async function saveMemory(
   state: DistributionState
 ): Promise<Partial<DistributionState>> {
-  // Build strategy record from final state
-  const successfulEval = state.evaluationHistory.find((e) => e.satisfactory);
-  const criteria = successfulEval?.criteria ?? state.searchCriteria;
-
   const isIdeaMode = state.mode === 'idea';
 
-  // Build category counts for idea mode
+  // Build category counts for idea mode summary
   let targetCategories: Record<string, number> | undefined;
   if (isIdeaMode && state.ideaTargets.length > 0) {
     targetCategories = {};
@@ -53,83 +18,17 @@ export async function saveMemory(
     }
   }
 
-  const record: StrategyRecord = {
-    timestamp: new Date().toISOString(),
-    mode: isIdeaMode ? 'idea' : 'business',
-    businessSummary:
-      state.businessUnderstanding?.summary ?? 'unknown',
-    platforms: state.selectedPlatforms,
-    winningCriteria: {
-      keywords: criteria?.keywords ?? [],
-      queries: criteria?.queries ?? [],
-      depth: criteria?.depth ?? 'default',
-    },
-    iterationsUsed: state.iterationCount ?? 0,
-    totalResultsFound: state.searchResults.length,
-    repliesGenerated: state.replyDrafts.length,
-    repliesPosted: state.postedReplies.length,
-    targetRejectionPatterns:
-      state.targetRejectionNotes.length > 0
-        ? state.targetRejectionNotes.map(
-            (n) => `[${n.targetPlatform}] ${n.reason}`
-          )
-        : undefined,
-    // Idea-specific fields
-    ideaSummary: isIdeaMode
-      ? state.ideaUnderstanding?.problemHypothesis
-      : undefined,
-    targetsDiscovered: isIdeaMode
-      ? state.ideaTargets.length
-      : undefined,
-    targetCategories,
-    ideaRejectionPatterns:
-      isIdeaMode && state.ideaRejectionNotes.length > 0
-        ? state.ideaRejectionNotes.map(
-            (n) => `[${n.platform}] ${n.reason}`
-          )
-        : undefined,
-  };
-
-  // Persist to local file
-  try {
-    mkdirSync(dirname(MEMORY_FILE), { recursive: true });
-
-    let strategies: StrategyRecord[] = [];
-    if (existsSync(MEMORY_FILE)) {
-      try {
-        const existing = readFileSync(MEMORY_FILE, 'utf-8');
-        const parsed = JSON.parse(existing);
-        strategies = Array.isArray(parsed) ? parsed : [];
-      } catch {
-        console.warn('[saveMemory] Corrupted memory file, starting fresh.');
-        strategies = [];
-      }
-    }
-
-    strategies.push(record);
-
-    // Keep last 50 strategies
-    if (strategies.length > 50) {
-      strategies = strategies.slice(-50);
-    }
-
-    writeFileSync(MEMORY_FILE, JSON.stringify(strategies, null, 2));
-    console.log(`[saveMemory] Strategy saved to ${MEMORY_FILE}`);
-  } catch (err) {
-    console.warn(`[saveMemory] Failed to persist strategy: ${err}`);
-  }
-
   // Log run summary
   console.log('\n=== Distribution Agent Run Summary ===');
-  console.log(`Mode: ${record.mode}`);
-  if (record.mode === 'idea') {
+  console.log(`Mode: ${isIdeaMode ? 'idea' : 'business'}`);
+  if (isIdeaMode) {
     console.log(
-      `Idea: ${record.ideaSummary?.substring(0, 80) ?? 'unknown'}`
+      `Idea: ${state.ideaUnderstanding?.problemHypothesis?.substring(0, 80) ?? 'unknown'}`
     );
-    console.log(`Targets discovered: ${record.targetsDiscovered ?? 0}`);
-    if (record.targetCategories) {
+    console.log(`Targets discovered: ${state.ideaTargets.length}`);
+    if (targetCategories) {
       console.log(
-        `Categories: ${Object.entries(record.targetCategories)
+        `Categories: ${Object.entries(targetCategories)
           .map(([k, v]) => `${k}: ${v}`)
           .join(', ')}`
       );
@@ -139,14 +38,14 @@ export async function saveMemory(
     }
   } else {
     console.log(
-      `Business: ${record.businessSummary.substring(0, 80)}`
+      `Business: ${(state.businessUnderstanding?.summary ?? 'unknown').substring(0, 80)}`
     );
-    console.log(`Replies generated: ${record.repliesGenerated}`);
-    console.log(`Replies posted: ${record.repliesPosted}`);
+    console.log(`Replies generated: ${state.replyDrafts.length}`);
+    console.log(`Replies posted: ${state.postedReplies.length}`);
   }
-  console.log(`Platforms: ${record.platforms.join(', ')}`);
-  console.log(`Search iterations: ${record.iterationsUsed}`);
-  console.log(`Results found: ${record.totalResultsFound}`);
+  console.log(`Platforms: ${state.selectedPlatforms.join(', ')}`);
+  console.log(`Search iterations: ${state.iterationCount ?? 0}`);
+  console.log(`Results found: ${state.searchResults.length}`);
   console.log('======================================\n');
 
   return {};

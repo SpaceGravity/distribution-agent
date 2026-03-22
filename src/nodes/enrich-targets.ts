@@ -11,9 +11,10 @@ import {
 export async function enrichTargets(
   state: DistributionState
 ): Promise<Partial<DistributionState>> {
-  const targets = state.ideaTargets;
+  // Only enrich approved targets (enrichment runs after batch review now)
+  const targets = state.ideaTargets.filter((t) => t.status === 'approved');
   if (targets.length === 0) {
-    console.warn('[enrichTargets] No targets to enrich.');
+    console.warn('[enrichTargets] No approved targets to enrich.');
     return {};
   }
 

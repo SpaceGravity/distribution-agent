@@ -81,8 +81,24 @@ export async function generateOutreach(
 function determineOutreachType(
   target: IdeaTarget
 ): 'dm' | 'post' | 'comment' {
-  if (target.category === 'community_hub') return 'post';
-  if (target.sourcePostUrl && target.sourcePostUrl !== target.url)
-    return 'comment';
-  return 'dm';
+  // Platform-specific routing
+  switch (target.platform) {
+    case 'hn':
+      return 'comment'; // HN has no DM capability
+    case 'youtube':
+      return 'comment'; // YouTube: comment on videos
+    case 'x':
+      if (target.category === 'community_hub') return 'post';
+      if (target.sourcePostUrl && target.sourcePostUrl !== target.url) return 'comment';
+      return 'dm';
+    case 'reddit':
+      if (target.category === 'community_hub') return 'post';
+      if (target.sourcePostUrl && target.sourcePostUrl !== target.url) return 'comment';
+      return 'dm';
+    default:
+      // Generic fallback
+      if (target.category === 'community_hub') return 'post';
+      if (target.sourcePostUrl && target.sourcePostUrl !== target.url) return 'comment';
+      return 'dm';
+  }
 }

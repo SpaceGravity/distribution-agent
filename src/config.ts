@@ -10,7 +10,7 @@ export const CONFIG = {
 
   // Search settings
   MAX_ITERATIONS: parseInt(
-    process.env.DISTRIBUTION_AGENT_MAX_ITERATIONS ?? '5'
+    process.env.DISTRIBUTION_AGENT_MAX_ITERATIONS ?? '3'
   ),
   DEFAULT_TARGET_COUNT: parseInt(
     process.env.DISTRIBUTION_AGENT_DEFAULT_TARGET_COUNT ?? '20'

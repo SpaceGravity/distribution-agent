@@ -124,6 +124,13 @@ Return your criteria as structured JSON matching this schema:
 
 IMPORTANT: Generate at most 5 queries. Each query runs a separate search, so fewer high-quality queries are better than many broad ones.
 
+Each query MUST target a DIFFERENT search angle to maximize coverage:
+- Problem-focused: How people describe the pain point in their own words
+- Solution-seeking: People actively looking for tools or solutions
+- Comparison: People comparing alternatives or asking "X vs Y"
+- Community: People asking where to find help or relevant communities
+- Frustration: People expressing frustration with current tools or workarounds
+
 Focus on:
 - Pain point language that potential customers would use
 - Questions people ask when they need this type of solution
@@ -173,7 +180,7 @@ ${results
 
 <iteration_info>
 Current iteration: ${iterationCount}
-Maximum iterations: 5
+Maximum iterations: 3
 </iteration_info>`;
 
   // Include evaluation history
@@ -292,7 +299,7 @@ ${toneExamples}
 
   prompt += `
 
-Write your reply now. Output ONLY the reply text, nothing else.`;
+Write your reply now. Output ONLY the reply text in plain text. No markdown, no bullet points, no formatting.`;
 
   return prompt;
 }
@@ -369,7 +376,7 @@ ${toneExamples}
 
   prompt += `
 
-Rewrite the reply addressing the feedback. Output ONLY the reply text, nothing else.`;
+Rewrite the reply addressing the feedback. Output ONLY the reply text in plain text. No markdown, no bullet points, no formatting.`;
 
   return prompt;
 }
@@ -418,7 +425,8 @@ export function ideaCriteriaPrompt(
   rejectionNotes?: IdeaRejectionNote[],
   evaluationHistory?: EvaluationRecord[],
   userGuidance?: string,
-  selectedPlatforms?: string[]
+  selectedPlatforms?: string[],
+  backfillCount?: number
 ): string {
   let prompt = `You are an expert at customer discovery and community research. Generate search queries to find people and communities related to a problem hypothesis.
 
@@ -473,6 +481,14 @@ ${rejectionNotes
   .map((note) => `- [${note.platform}] "${note.name}" — Reason: ${note.reason}`)
   .join('\n')}
 </rejection_history>`;
+  }
+
+  if (backfillCount && backfillCount > 0) {
+    prompt += `
+
+<backfill_target>
+We need approximately ${backfillCount} more targets to reach the desired count. Focus queries on finding new, diverse targets that differ from previously found ones.
+</backfill_target>`;
   }
 
   prompt += `
@@ -561,7 +577,13 @@ Return as structured JSON:
   ]
 }
 
-Be selective — only include targets that are genuinely relevant to the problem hypothesis. Quality over quantity.`;
+Be selective — only include targets that are genuinely relevant to the problem hypothesis. Quality over quantity.
+
+Aim for a balanced category mix when possible:
+- ~40% potential_customer (people experiencing the problem)
+- ~25% community_hub (relevant communities and forums)
+- ~20% domain_expert (people with expertise in the problem area)
+- ~15% competitor_user (people using existing solutions)`;
 }
 
 /**
@@ -585,8 +607,7 @@ ${targets
   .map(
     (t, i) => `${i + 1}. [${t.platform}] ${t.name} (${t.category})
    URL: ${t.url}
-   Why relevant: ${t.whyRelevant}
-   Followers: ${t.followerCount ?? 'unknown'}`
+   Why relevant: ${t.whyRelevant}`
   )
   .join('\n\n')}
 </discovered_targets>`;
@@ -615,8 +636,12 @@ Return as structured JSON:
   "satisfactory": boolean,
   "reasoning": string,
   "approvedTargetIds": string[],
+  "rejectedTargetIds": string[],
   "suggestedRefinements": string
 }
+
+approvedTargetIds: IDs of targets that pass evaluation and are worth reaching out to.
+rejectedTargetIds: IDs of targets that should be excluded (poor match, irrelevant, low quality). Targets in neither list remain pending for the next evaluation round.
 
 Be strict: only approve targets that genuinely match the target demographic and could provide validation signal.`;
 
@@ -632,9 +657,9 @@ export function outreachDraftPrompt(
   ideaUnderstanding: IdeaUnderstanding
 ): string {
   const typeInstructions = {
-    dm: 'Write a direct message to this person. Keep it short (2-3 sentences max). Be personal and specific about why you are reaching out to them.',
-    post: 'Write a post for this community. Frame it as a question seeking insight from the community members. Include enough context for people to understand what you are exploring.',
-    comment: 'Write a comment reply to the thread where this person was found. Reference the specific topic being discussed and ask a follow-up question.',
+    dm: 'Write a direct message to this person. Maximum 3 sentences. Be personal and specific about why you are reaching out to them.',
+    post: 'Write a post for this community. Maximum 6 sentences. Frame it as a question seeking insight from the community members. Include enough context for people to understand what you are exploring.',
+    comment: 'Write a comment reply to the thread where this person was found. Maximum 4 sentences. Reference the specific topic being discussed and ask a follow-up question.',
   };
 
   return `You are someone exploring a problem hypothesis and reaching out to validate whether the problem is real and painful. You are NOT selling anything. You are genuinely curious and seeking to learn.
@@ -665,7 +690,7 @@ Outreach type: ${target.outreachType}
 ${typeInstructions[target.outreachType]}
 </outreach_type_instructions>
 
-Write the outreach message now. Output ONLY the message text, nothing else.`;
+Write the outreach message now. Output ONLY the message text in plain text. No markdown, no bullet points, no formatting.`;
 }
 
 /**
@@ -706,5 +731,5 @@ ${previousDraft}
 ${feedback}
 </user_feedback>
 
-Rewrite the message addressing the feedback. Output ONLY the message text, nothing else.`;
+Rewrite the message addressing the feedback. Output ONLY the message text in plain text. No markdown, no bullet points, no formatting.`;
 }
