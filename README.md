@@ -116,13 +116,22 @@ START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> ext
                                               |                                                              yes   no(<5)   no(>=5)
                                               |                                                              /       |          \
                                               |                                                 batchReviewTargets  refineIdeaSearch  askIdeaHelp
-                                              |                                                      |
-                                              |                                                [rejections?]
-                                              |                                                /          \
-                                              +-----------(backfill)----------yes               no
+                                              |                                                      |                                   |
+                                              |                                                [rejections?]                        [proceed?]
+                                              |                                                /          \                        /        \
+                                              +-----------(backfill)----------yes               no        no(guidance)  yes→batchReviewTargets
                                                                                                |
                                                                                         generateOutreach -> reviewOutreach -> exportCsv -> saveMemory -> END
 ```
+
+## Key Lessons & Gotchas
+
+| Gotcha | Detail |
+|--------|--------|
+| Search queries must not contain `site:` operators | Platform filtering is handled by the `--search=` flag in last30days.py. `site:` operators in query text are treated as literal search terms by Reddit/X, returning 0 results. `sanitizeQuery()` in `search-runner.ts` strips them as a safety net. |
+| Idea path uses `--quick` depth | `default` depth enriches top posts with comments (90s+), which triggers the script's global 180s timeout and discards ALL results. `quick` skips enrichment entirely. |
+| Content searches run per-platform to isolate timeouts | `searchIdea` runs one subprocess per platform per query. Without this, a single platform timeout (e.g. X rate limit at 60s) triggers the global kill and discards results from other platforms. |
+| `askIdeaHelp` supports "proceed" to skip to review | After max iterations, the user can type "proceed" (or similar intent) to route directly to `batchReviewTargets` with existing targets, instead of always looping back to `refineIdeaSearch`. |
 
 ## Documentation Index
 
@@ -137,7 +146,7 @@ START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> ext
 | `.agent/SOP/langgraph-interrupts-and-resume.md` | `interrupt()`, resume, SQLite persistence, sequential + batch review |
 | `.agent/SOP/langgraph-state-and-reducers.md` | State schemas, reducer patterns, defaults gotchas |
 | `.agent/SOP/llm-structured-output-and-prompts.md` | `withStructuredOutput`, prompt templates, rejection context, outreach tone |
-| `.agent/SOP/subprocess-and-search.md` | Python subprocess, last30days integration, query capping |
+| `.agent/SOP/subprocess-and-search.md` | Python subprocess, last30days integration, query hygiene, per-platform isolation |
 | `.agent/SOP/testing-and-debugging.md` | Test patterns, common bugs, debugging tips |
 | `.agent/SOP/typescript-esm-and-tooling.md` | ESM imports, pnpm, tsx, ESLint, LangGraph Studio |
 | `.agent/SOP/langgraph-studio-operations.md` | Running the agent in Studio: input, interrupts, resume, output verification |
@@ -149,6 +158,7 @@ START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> ext
 | `.agent/Lessons/prompt-parameter-alignment.md` | Prompt functions must accept all data their callers pass |
 | `.agent/Lessons/sentinel-value-filtering.md` | Sentinel strings are truthy — filter them explicitly |
 | `.agent/Lessons/browser-automation-studio.md` | Browser automation lessons: JS scroll/click, Polly icon, extension disconnects |
+| `.agent/Lessons/search-query-hygiene.md` | LLM queries must not include `site:` operators; per-platform isolation; quick depth for idea path |
 
 ### Skills
 

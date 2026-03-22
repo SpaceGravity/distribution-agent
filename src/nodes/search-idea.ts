@@ -11,10 +11,12 @@ export async function searchIdea(
     throw new Error('Search criteria not available in state.');
   }
 
-  const { queries, depth } = state.searchCriteria;
-  // Cap depth to 'default' — 'deep' causes timeout in last30days.py enrichment
-  // (8 posts x ~30s each = 240s, exceeds the 120s future timeout)
-  const effectiveDepth = depth === 'deep' ? 'default' : depth;
+  const { queries } = state.searchCriteria;
+  // Force 'quick' depth for idea path content queries — last30days.py 'default'
+  // depth enriches top 5 posts with comments, which takes 90s+ and triggers
+  // the script's global 180s timeout. Even when Reddit finds 80-120 posts,
+  // the enrichment timeout discards ALL results. 'quick' skips enrichment.
+  const effectiveDepth = 'quick' as const;
   // Use user's selected platforms, not LLM-generated platformFilters
   // Always include reddit — idea mode depends on community discovery
   const platformFilters = state.selectedPlatforms.includes('reddit')
@@ -28,40 +30,50 @@ export async function searchIdea(
     `[searchIdea] Running ${cappedContentQueries.length} content queries on ${platformFilters.join(', ')} + ${communityQueries.length} community queries on web`
   );
 
-  // Run content queries on user-selected platforms
-  const contentPromises = cappedContentQueries.map((query) =>
-    searchPlatforms(query, platformFilters, effectiveDepth)
-  );
+  // Run content queries — one call per platform per query so a single
+  // platform timeout (e.g. X rate-limited) doesn't kill the others.
+  // Without this, --search=reddit,x runs both in one process; X's 60s
+  // timeout triggers the global 90s kill, discarding Reddit's results too.
+  const contentPromises: Array<{ query: string; platform: string; promise: Promise<SearchResultItem[]> }> = [];
+  for (const query of cappedContentQueries) {
+    for (const platform of platformFilters) {
+      contentPromises.push({
+        query,
+        platform,
+        promise: searchPlatforms(query, [platform], effectiveDepth),
+      });
+    }
+  }
 
   // Run community-discovery queries on web only
-  const communityPromises = communityQueries.map((query) =>
-    searchPlatforms(query, ['web'], 'default')
-  );
+  const communityPromises = communityQueries.map((query) => ({
+    query,
+    platform: 'web',
+    promise: searchPlatforms(query, ['web'], 'default'),
+  }));
 
-  const settled = await Promise.allSettled([
-    ...contentPromises,
-    ...communityPromises,
-  ]);
+  const allPromises = [...contentPromises, ...communityPromises];
+  const settled = await Promise.allSettled(allPromises.map((p) => p.promise));
 
   const allResults: SearchResultItem[] = [];
   const errors: string[] = [];
-  const allQueries = [...cappedContentQueries, ...communityQueries];
 
   for (let i = 0; i < settled.length; i++) {
     const result = settled[i];
-    const query = allQueries[i];
+    const { query, platform } = allPromises[i];
+    const label = `[${platform}] "${query.substring(0, 35)}..."`;
     if (result.status === 'fulfilled') {
       allResults.push(...result.value);
       console.log(
-        `[searchIdea] Query "${query.substring(0, 40)}..." returned ${result.value.length} results`
+        `[searchIdea] ${label} returned ${result.value.length} results`
       );
     } else {
       const msg =
         result.reason instanceof Error
           ? result.reason.message
           : String(result.reason);
-      errors.push(`Query "${query.substring(0, 40)}...": ${msg}`);
-      console.error(`[searchIdea] Query failed: ${msg}`);
+      errors.push(`${label}: ${msg}`);
+      console.error(`[searchIdea] ${label} failed: ${msg}`);
     }
   }
 
@@ -73,7 +85,7 @@ export async function searchIdea(
 
   if (errors.length > 0) {
     console.warn(
-      `[searchIdea] ${errors.length}/${allQueries.length} queries failed, continuing with ${allResults.length} results`
+      `[searchIdea] ${errors.length}/${allPromises.length} searches failed, continuing with ${allResults.length} results`
     );
   }
 

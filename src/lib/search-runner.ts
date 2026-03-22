@@ -184,6 +184,20 @@ function reportKeyToPlatform(key: string): string {
 }
 
 /**
+ * Strip site: operators and clean up boolean artifacts from queries.
+ * The last30days.py script handles platform routing via --search= flag,
+ * so site: operators in the query itself break Reddit/X search (returns 0).
+ */
+function sanitizeQuery(query: string): string {
+  return query
+    // Remove site:domain.com patterns (with optional surrounding OR)
+    .replace(/\s*(OR\s+)?site:\S+(\s+OR)?/gi, ' ')
+    // Collapse multiple spaces
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/**
  * Run the last30days.py search script and return normalized results.
  *
  * @param query - The search query string
@@ -196,9 +210,14 @@ export async function searchPlatforms(
   platforms: string[],
   depth: 'quick' | 'default' | 'deep' = 'default'
 ): Promise<SearchResultItem[]> {
+  const cleanQuery = sanitizeQuery(query);
+  if (cleanQuery !== query) {
+    console.warn(`[search-runner] Stripped site: operators from query: "${query}" → "${cleanQuery}"`);
+  }
+
   const args = [
     CONFIG.LAST30DAYS_SCRIPT,
-    query,
+    cleanQuery,
     '--emit=json',
     `--search=${platforms.join(',')}`,
   ];

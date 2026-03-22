@@ -39,7 +39,7 @@ export async function askIdeaHelp(
 
   const userResponse = interrupt({
     action:
-      'Idea target discovery failed after maximum iterations. Please provide guidance.',
+      'Idea target discovery needs your input after maximum iterations.',
     report: {
       problemHypothesis:
         state.ideaUnderstanding?.problemHypothesis ?? 'unknown',
@@ -50,7 +50,7 @@ export async function askIdeaHelp(
       iterations: iterationSummaries,
     },
     instructions:
-      'Please review the targets found so far and provide guidance. What communities, demographics, or search approaches should the agent try?',
+      'You have two options:\n1. Type "proceed" to review and use the targets found so far.\n2. Provide search guidance (communities, demographics, keywords) to try again.',
   });
 
   const guidance =
@@ -61,6 +61,27 @@ export async function askIdeaHelp(
   console.log(
     `[askIdeaHelp] Received user guidance: ${guidance.substring(0, 100)}...`
   );
+
+  // Check if user wants to proceed with current targets
+  const lower = guidance.toLowerCase();
+  const proceedSignals = ['proceed', 'what you have', 'what you found', 'give me', 'use current', 'skip', 'just use', 'go ahead', 'move on'];
+  const wantsProceed = proceedSignals.some((signal) => lower.includes(signal));
+
+  if (wantsProceed && state.ideaTargets.length > 0) {
+    console.log(
+      `[askIdeaHelp] User wants to proceed with ${state.ideaTargets.length} existing targets.`
+    );
+    // Mark all pending targets as approved so batchReviewTargets can present them
+    const updatedTargets = state.ideaTargets.map((t) =>
+      t.status === 'pending' ? { ...t, status: 'approved' as const } : t
+    );
+    return new Command({
+      update: {
+        ideaTargets: updatedTargets,
+      },
+      goto: 'batchReviewTargets',
+    });
+  }
 
   return new Command({
     update: {

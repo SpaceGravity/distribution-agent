@@ -202,6 +202,23 @@ Key design decisions:
 - Rejection notes feed back into search criteria + evaluation prompts
 - Different from business path's one-by-one review — all targets shown at once
 
+## askIdeaHelp escape hatch (idea path)
+
+After max iterations without satisfactory targets, `askIdeaHelp` interrupts for user input. The node supports two response paths:
+
+1. **Proceed with current targets** — User says "proceed", "use what you have", "move on", etc. The node auto-approves all pending targets and routes directly to `batchReviewTargets`, skipping further search iterations.
+2. **Provide guidance** — User gives search guidance (communities, keywords, demographics). The node resets `iterationCount` to 0 and routes to `refineIdeaSearch` to try again.
+
+```
+askIdeaHelp (interrupt)
+    |
+[user response?]
+    ├── proceed intent detected → mark pending targets approved → goto batchReviewTargets
+    └── search guidance provided → reset iterationCount → goto refineIdeaSearch
+```
+
+Proceed detection uses a list of signal phrases (`proceed`, `what you have`, `skip`, `go ahead`, `move on`, etc.) matched case-insensitively against the user's response. Requires at least 1 existing target to proceed.
+
 ## Dual search strategy (idea path)
 
 The idea path runs two types of searches in parallel:

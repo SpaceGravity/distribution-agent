@@ -109,9 +109,9 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
                         |                                                            /       |          \
                         |                                               batchReviewTargets  refineIdeaSearch  askIdeaHelp
                         |                                                    |                    |              |
-                        |                                              [rejections?]               |         (guidance)
-                        |                                              /          \                |              |
-                        +-------(backfill)------------- yes            no         ←───────────────+
+                        |                                              [rejections?]               |       [proceed?]
+                        |                                              /          \                |        /        \
+                        +-------(backfill)------------- yes            no         ←──────────── no     yes → batchReviewTargets
                                                                        |
                                                                 generateOutreach → reviewOutreach → exportCsv → saveMemory → END
 ```
@@ -139,7 +139,7 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
 | enrichTargets | → evaluateIdeaTargets | Static edge |
 | evaluateIdeaTargets | → batchReviewTargets / refineIdeaSearch / askIdeaHelp | Command (dynamic) |
 | refineIdeaSearch | → searchIdea | Static edge |
-| askIdeaHelp | → refineIdeaSearch | Command (dynamic) |
+| askIdeaHelp | → refineIdeaSearch / batchReviewTargets | Command (dynamic) |
 | batchReviewTargets | → generateOutreach / generateIdeaCriteria | Command (dynamic) |
 | generateOutreach | → reviewOutreach | Static edge |
 | reviewOutreach | → exportCsv | Command (dynamic) |
@@ -163,6 +163,9 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
 - Timeout: 5 minutes
 - Queries capped at 5 (content) + 3 (community discovery for idea path)
 - All queries run in parallel via `Promise.allSettled()`
+- **Query hygiene**: `sanitizeQuery()` strips `site:` operators before every call (LLMs sometimes add them despite prompt instructions; platform-native search APIs treat them as literal text)
+- **Idea path uses per-platform isolation**: `searchIdea` runs one subprocess per platform per query (not combined `--search=reddit,x`) so a single platform timeout doesn't discard results from others
+- **Idea path uses `--quick` depth**: Skips comment enrichment to avoid 90s+ processing that triggers the script's global timeout and discards all results
 
 ### 3. Reddit Public Endpoint (Idea Path Enrichment)
 - Subreddit member count → `GET https://www.reddit.com/r/{subreddit}/about.json`

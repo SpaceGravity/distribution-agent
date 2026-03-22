@@ -131,11 +131,12 @@ Each query MUST target a DIFFERENT search angle to maximize coverage:
 - Community: People asking where to find help or relevant communities
 - Frustration: People expressing frustration with current tools or workarounds
 
-Focus on:
-- Pain point language that potential customers would use
-- Questions people ask when they need this type of solution
-- Community-specific terminology
-- Avoid generic terms that would return too much noise`;
+CRITICAL QUERY RULES:
+- NEVER include "site:" operators (e.g., site:reddit.com). Platform filtering is handled separately by the system.
+- Keep each query SHORT — under 8 words. Reddit and X have basic search engines.
+- Do NOT use boolean operators like OR, AND, or exact-match quotes. Use plain natural language.
+- Focus on pain-point language that real people would type into a search bar.
+- Avoid generic terms that would return too much noise.`;
 
   return prompt;
 }
@@ -510,10 +511,13 @@ Return as structured JSON:
   "communityQueries": string[]
 }
 
-IMPORTANT:
+CRITICAL QUERY RULES:
+- NEVER include "site:" operators (e.g., site:reddit.com). Platform filtering is handled separately by the system — adding site: operators breaks the search and returns 0 results.
+- Keep each query SHORT — under 8 words. Reddit and X have basic search. Long complex queries return nothing.
+- Do NOT use boolean operators like OR, AND, or exact-match quotes ("..."). Just use plain natural language.
+- Write queries like a real person would type into a search bar: "LLM cost tracking per customer" not "("LLM costs" OR "OpenAI bill") ("per customer" OR "per user") site:reddit.com".
 - Content queries: max 5. Focus on pain-point language.
-- Community queries: max 3. These run on web only.
-- Use specific, natural search terms — not generic keywords.`;
+- Community queries: max 3. These run on web only.`;
 
   return prompt;
 }
