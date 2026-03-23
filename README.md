@@ -133,7 +133,7 @@ The agent persists learned patterns across sessions in `~/.distribution-agent/me
 - **Preferences** track platform usage and reply style feedback from user edits.
 - **Session history** logs past runs (capped at 50).
 
-Memory is read lazily by 5 reader nodes and written by `saveMemory` at session end. No LLM calls — extraction is deterministic.
+Memory is read lazily by 5 reader nodes and written by `saveMemory` at session end. Pattern classification uses a single LLM call for semantic grouping (~500 tokens); falls back to individual patterns if the call fails.
 
 ## Key Lessons & Gotchas
 

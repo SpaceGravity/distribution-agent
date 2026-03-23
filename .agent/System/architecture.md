@@ -229,7 +229,7 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
 
 ### Cross-Session Memory (`~/.distribution-agent/memory/`)
 
-Persistent memory system external to LangGraph state. Written by `saveMemory` node at session end, read lazily by reader nodes during graph execution. No LLM calls — all extraction is deterministic.
+Persistent memory system external to LangGraph state. Written by `saveMemory` node at session end, read lazily by reader nodes during graph execution. Rejection pattern classification uses a single LLM call at save time for semantic grouping (~500 tokens).
 
 **4 JSON files:**
 
@@ -249,6 +249,7 @@ Persistent memory system external to LangGraph state. Written by `saveMemory` no
 **Key design rules:**
 - Injection threshold: strength >= 2 (seen once = noise, twice = signal)
 - Top 10 patterns per prompt (controls token usage)
+- LLM-based semantic classification groups rejections with different wording into the same pattern (fallback: create individual patterns if LLM fails)
 - Atomic writes (`.tmp` + `renameSync`) prevent corruption
 - Memory failures never block graph completion (wrapped in try/catch)
 
