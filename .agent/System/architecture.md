@@ -60,10 +60,11 @@ src/
 │   ├── export-csv.ts               # CSV file output
 │   │
 │   │   === Shared ===
-│   └── save-memory.ts              # Persist strategy to disk (both modes)
+│   └── save-memory.ts              # Persist cross-session memory to disk (both modes)
 ├── lib/
 │   ├── llm.ts                      # Shared ChatAnthropic instance
-│   ├── prompts.ts                  # 11 prompt functions (pure, no LLM calls)
+│   ├── prompts.ts                  # 9 prompt functions (pure, no LLM calls)
+│   ├── memory.ts                   # Cross-session memory: read/write/extract (no LLM, no deps)
 │   ├── search-runner.ts            # Subprocess wrapper for last30days.py
 │   ├── enrichment.ts               # Reddit public endpoint, X API, URL verification
 │   └── csv-writer.ts               # RFC 4180 CSV serialization
@@ -190,7 +191,7 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
 - Idea description: user-provided `.md` file (max 50KB)
 - Tone examples: optional `.md` with per-platform `##` sections
 - SQLite DB: `./distribution-agent.sqlite`
-- Strategy memory: `~/.distribution-agent/search-strategies.json` (last 50 strategies)
+- Cross-session memory: `~/.distribution-agent/memory/` (4 JSON files — see Persistence section)
 - CSV output: `./output/idea-targets-{timestamp}.csv`
 
 ## Configuration
@@ -218,6 +219,7 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
 - `MAX_IDEA_FILE_SIZE`: 51,200 (50 KB)
 - `ENRICHMENT_CONCURRENCY`: 10
 - `ENRICHMENT_TIMEOUT_MS`: 10,000 (10 sec)
+- `MEMORY_DIR`: `~/.distribution-agent/memory/`
 
 ## Persistence
 
@@ -225,18 +227,37 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
 - Full state serialization for resumability across process restarts
 - Created via `SqliteSaver.fromConnString(CONFIG.DB_PATH)`
 
-### Search Strategy Memory
-- Path: `~/.distribution-agent/search-strategies.json`
-- Stores: timestamp, mode, business/idea summary, platforms, winning criteria, iterations, results count
-- Business mode adds: replies generated/posted
-- Idea mode adds: targets discovered, category counts, rejection patterns
-- Auto-trimmed to last 50 entries
+### Cross-Session Memory (`~/.distribution-agent/memory/`)
+
+Persistent memory system external to LangGraph state. Written by `saveMemory` node at session end, read lazily by reader nodes during graph execution. No LLM calls — all extraction is deterministic.
+
+**4 JSON files:**
+
+| File | Purpose | Cap |
+|------|---------|-----|
+| `rejection-patterns.json` | Rules extracted from user rejections. Strength increments on repeat (1-10). Only patterns with strength >= 2 are injected into prompts. | Decay: 90 days unseen → strength-1; at 0 → removed |
+| `strategies.json` | Search criteria from sessions with approval metrics. | 20 per mode (lowest approval rate trimmed) |
+| `preferences.json` | Platform usage counts, reply style feedback from user edits. | 20 entries per category |
+| `session-history.json` | Append-only session log (mode, platforms, approval rate, outcome). | 50 entries (FIFO) |
+
+**Reader nodes** (load memory and inject as XML blocks into prompts):
+- `generateCriteria`, `refineSearch`, `evaluate` (business path)
+- `generateIdeaCriteria`, `evaluateIdeaTargets` (idea path)
+
+**Writer node**: `saveMemory` (both paths) — extracts patterns, strategies, preferences, and session summary from state.
+
+**Key design rules:**
+- Injection threshold: strength >= 2 (seen once = noise, twice = signal)
+- Top 10 patterns per prompt (controls token usage)
+- Atomic writes (`.tmp` + `renameSync`) prevent corruption
+- Memory failures never block graph completion (wrapped in try/catch)
 
 ## Key Patterns
 
 - **Dual-mode graph**: Single graph, `mode` field routes at `getInput` to business or idea path
 - **Command routing**: Nodes with multiple destinations return `Command { update, goto }`
 - **Interrupt-based control**: 6 interrupts total (getInput, askUserHelp, reviewReply for business; askIdeaHelp, batchReviewTargets, reviewOutreach for idea)
+- **Cross-session memory**: Rejection patterns, strategies, and preferences persist across sessions in `~/.distribution-agent/memory/`. Injected into prompts as `<cross_session_*>` XML blocks.
 - **Rejection feedback loop**: Rejection notes injected into criteria + evaluation prompts (both paths)
 - **Batch review with backfill**: Idea path reviews all targets at once; rejections trigger re-search to fill gaps
 - **Dual search strategy**: Idea path runs content queries on user platforms + community-discovery queries on web

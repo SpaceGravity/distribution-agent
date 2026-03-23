@@ -5,6 +5,7 @@ import type { DistributionState } from '../state.js';
 import { SearchCriteriaSchema } from '../state.js';
 import { llm } from '../lib/llm.js';
 import { criteriaGenerationPrompt } from '../lib/prompts.js';
+import { loadCrossSessionMemory } from '../lib/memory.js';
 
 export async function generateCriteria(
   state: DistributionState
@@ -14,6 +15,7 @@ export async function generateCriteria(
   }
 
   const structuredLlm = llm.withStructuredOutput(SearchCriteriaSchema);
+  const memory = loadCrossSessionMemory('business');
 
   const prompt = criteriaGenerationPrompt(
     state.businessUnderstanding,
@@ -23,7 +25,8 @@ export async function generateCriteria(
     state.userGuidance ?? undefined,
     state.targetRejectionNotes.length > 0
       ? state.targetRejectionNotes
-      : undefined
+      : undefined,
+    memory
   );
 
   const criteria = await structuredLlm.invoke(prompt);
