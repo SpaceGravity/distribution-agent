@@ -20,7 +20,7 @@ export async function batchReviewTargets(
   // Force-proceed after max review cycles
   if (cycle >= CONFIG.IDEA_MAX_REVIEW_CYCLES) {
     console.log(
-      `[batchReviewTargets] Max review cycles (${CONFIG.IDEA_MAX_REVIEW_CYCLES}) reached. Proceeding to outreach.`
+      `[batchReviewTargets] Max review cycles (${CONFIG.IDEA_MAX_REVIEW_CYCLES}) reached. Proceeding to export.`
     );
     return new Command({
       update: { ideaTargets: approvePendingTargets(state.ideaTargets) },

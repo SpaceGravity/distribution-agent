@@ -119,8 +119,6 @@ export const IdeaTargetSchema = z.object({
   followerCount: z.number().nullable(),
   sourcePostUrl: z.string(),
   sourcePostTitle: z.string(),
-  outreachDraft: z.string(),
-  outreachType: z.enum(['dm', 'post', 'comment']),
   status: z.enum(['pending', 'approved', 'rejected']),
   rejectionReason: z.string().nullable(),
 });
