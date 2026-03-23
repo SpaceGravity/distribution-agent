@@ -144,8 +144,6 @@ export async function extractTargets(
       followerCount: null,
       sourcePostUrl: t.sourcePostUrl,
       sourcePostTitle: t.sourcePostTitle,
-      outreachDraft: '',
-      outreachType: 'dm',
       status: 'pending',
       rejectionReason: null,
     });

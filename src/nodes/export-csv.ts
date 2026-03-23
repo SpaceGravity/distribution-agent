@@ -1,4 +1,4 @@
-// exportCsv node — Exports approved targets with outreach drafts to CSV
+// exportCsv node — Exports approved targets to CSV
 
 import { resolve } from 'path';
 import type { DistributionState } from '../state.js';
@@ -12,8 +12,6 @@ const CSV_HEADERS = [
   'category',
   'why_relevant',
   'follower_count',
-  'outreach_draft',
-  'outreach_type',
   'source_post_url',
   'source_post_title',
 ];
@@ -43,8 +41,6 @@ export async function exportCsv(
     category: t.category,
     why_relevant: t.whyRelevant,
     follower_count: t.followerCount,
-    outreach_draft: t.outreachDraft,
-    outreach_type: t.outreachType,
     source_post_url: t.sourcePostUrl,
     source_post_title: t.sourcePostTitle,
   }));

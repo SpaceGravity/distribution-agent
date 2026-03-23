@@ -30,8 +30,6 @@ import { evaluateIdeaTargets } from './nodes/evaluate-idea-targets.js';
 import { refineIdeaSearch } from './nodes/refine-idea-search.js';
 import { askIdeaHelp } from './nodes/ask-idea-help.js';
 import { batchReviewTargets } from './nodes/batch-review-targets.js';
-import { generateOutreach } from './nodes/generate-outreach.js';
-import { reviewOutreach } from './nodes/review-outreach.js';
 import { exportCsv } from './nodes/export-csv.js';
 
 // --- Graph construction ---
@@ -77,8 +75,6 @@ export const graph = new StateGraph(DistributionStateSchema)
   .addNode('batchReviewTargets', batchReviewTargets, {
     ends: ['enrichTargets', 'generateIdeaCriteria'],
   })
-  .addNode('generateOutreach', generateOutreach)
-  .addNode('reviewOutreach', reviewOutreach, { ends: ['exportCsv'] })
   .addNode('exportCsv', exportCsv)
 
   // --- Business path edges ---
@@ -96,8 +92,7 @@ export const graph = new StateGraph(DistributionStateSchema)
   .addEdge('searchIdea', 'extractTargets')
   .addEdge('extractTargets', 'evaluateIdeaTargets')
   .addEdge('refineIdeaSearch', 'searchIdea')
-  .addEdge('enrichTargets', 'generateOutreach')
-  .addEdge('generateOutreach', 'reviewOutreach')
+  .addEdge('enrichTargets', 'exportCsv')
   .addEdge('exportCsv', 'saveMemory')
 
   .compile({ checkpointer });
