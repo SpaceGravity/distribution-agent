@@ -13,9 +13,11 @@ Cross-session memory lives in JSON files at `~/.distribution-agent/memory/`, NOT
 
 A pattern seen once could be noise. Seen twice across independent sessions = real signal. Only patterns with `strength >= 2` are injected into prompts via `<cross_session_rejection_patterns>` XML blocks. This prevents over-fitting to a single session's rejections.
 
-## Deterministic Pattern Extraction (No LLM)
+## LLM-Based Semantic Classification
 
-Rejection patterns are extracted deterministically via keyword overlap matching (3+ shared words = match). The user's rejection reasons are already actionable — no LLM needed. This keeps memory operations fast, free, and predictable.
+Rejection patterns are classified using a single LLM call at save time (~500 tokens). The LLM matches new rejections against existing patterns semantically — so "personal finance post" and "unrelated money management content" are grouped into the same pattern even though they share no keywords. If the LLM call fails, the system falls back to creating each rejection as an individual pattern with strength 1. This keeps memory resilient — classification failures never block the graph.
+
+**Why LLM over keyword matching:** The original approach used keyword overlap (3+ shared words = match). This failed when users expressed the same concern with different words, leading to redundant patterns that should have been grouped.
 
 ## Atomic Writes Prevent Corruption
 

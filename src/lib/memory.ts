@@ -1,7 +1,6 @@
 // Cross-session memory for the Distribution Agent
 // Persists rejection patterns, strategies, preferences, and session history
 // to ~/.distribution-agent/memory/ as JSON files.
-// No external dependencies — uses Node.js fs, path, and crypto.randomUUID().
 
 import {
   readFileSync,
@@ -12,7 +11,9 @@ import {
   unlinkSync,
 } from 'fs';
 import { join } from 'path';
+import z from 'zod';
 import { CONFIG } from '../config.js';
+import { llm } from './llm.js';
 import type { DistributionState } from '../state.js';
 
 // === Types ===
@@ -174,14 +175,6 @@ function writeJsonFile<T>(filename: string, data: T): void {
 
 // === Helpers ===
 
-function extractKeywords(text: string): string[] {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .split(/\s+/)
-    .filter((w) => w.length > 2);
-}
-
 function generateId(): string {
   return crypto.randomUUID();
 }
@@ -244,19 +237,37 @@ export function loadCrossSessionMemory(
 
 // === Writer Functions ===
 
+// Zod schema for LLM classification response
+const ClassificationSchema = z.object({
+  classifications: z.array(
+    z.object({
+      rejectionIndex: z.number(),
+      action: z.enum(['match', 'new']),
+      patternId: z.string().optional(),
+      rule: z.string().optional(),
+    })
+  ),
+});
+
 /**
  * Extracts rejection patterns from session rejection notes and persists them.
- * Deterministic matching — no LLM calls. 3+ keyword overlap = match.
+ * Uses LLM to semantically classify rejections against existing patterns.
+ * Falls back to creating individual patterns if LLM call fails.
  */
-export function extractAndSaveRejectionPatterns(
+export async function extractAndSaveRejectionPatterns(
   mode: 'business' | 'idea',
   rejectionNotes: Array<{
     reason: string;
     platform?: string;
     targetPlatform?: string;
   }>
-): void {
-  if (rejectionNotes.length === 0) return;
+): Promise<void> {
+  // Filter to valid rejection reasons
+  const validNotes = rejectionNotes.filter((n) => {
+    const reason = n.reason.trim();
+    return reason && reason !== 'No reason provided';
+  });
+  if (validNotes.length === 0) return;
 
   const data = readJsonFile(
     'rejection-patterns.json',
@@ -265,37 +276,70 @@ export function extractAndSaveRejectionPatterns(
   const list = mode === 'business' ? data.business : data.idea;
   const now = new Date().toISOString();
 
-  for (const note of rejectionNotes) {
-    const reason = note.reason.trim();
-    if (!reason || reason === 'No reason provided') continue;
+  // Try LLM classification, fall back to individual patterns on failure
+  let classifications: z.infer<typeof ClassificationSchema> | null = null;
 
-    const platform =
-      note.platform ?? note.targetPlatform ?? 'unknown';
-    const reasonWords = extractKeywords(reason);
-
-    // Find existing pattern with keyword overlap
-    let matched = false;
-    for (const pattern of list) {
-      const patternWords = extractKeywords(pattern.rule);
-      const overlap = reasonWords.filter((w) => patternWords.includes(w));
-      if (overlap.length >= 3) {
-        pattern.strength = Math.min(10, pattern.strength + 1);
-        pattern.lastSeenAt = now;
-        if (!pattern.platforms.includes(platform)) {
-          pattern.platforms.push(platform);
-        }
-        if (
-          pattern.examples.length < 3 &&
-          !pattern.examples.includes(reason)
-        ) {
-          pattern.examples.push(reason);
-        }
-        matched = true;
-        break;
-      }
+  if (list.length > 0) {
+    // Only call LLM when there are existing patterns to match against
+    try {
+      const prompt = buildClassificationPrompt(list, validNotes);
+      const structuredLlm = llm.withStructuredOutput(ClassificationSchema);
+      classifications = await structuredLlm.invoke(prompt);
+    } catch (err) {
+      console.warn(
+        '[memory] LLM classification failed, falling back to individual patterns:',
+        err
+      );
     }
+  }
 
-    if (!matched) {
+  if (classifications) {
+    // Apply LLM decisions
+    for (const c of classifications.classifications) {
+      const note = validNotes[c.rejectionIndex];
+      if (!note) continue;
+
+      const reason = note.reason.trim();
+      const platform =
+        note.platform ?? note.targetPlatform ?? 'unknown';
+
+      if (c.action === 'match' && c.patternId) {
+        const pattern = list.find((p) => p.id === c.patternId);
+        if (pattern) {
+          pattern.strength = Math.min(10, pattern.strength + 1);
+          pattern.lastSeenAt = now;
+          if (!pattern.platforms.includes(platform)) {
+            pattern.platforms.push(platform);
+          }
+          if (
+            pattern.examples.length < 3 &&
+            !pattern.examples.includes(reason)
+          ) {
+            pattern.examples.push(reason);
+          }
+          continue;
+        }
+        // Pattern ID not found — treat as new
+      }
+
+      // action === 'new' or fallthrough from invalid patternId
+      list.push({
+        id: generateId(),
+        rule: c.rule ?? reason,
+        platforms: [platform],
+        examples: [reason],
+        strength: 1,
+        createdAt: now,
+        lastSeenAt: now,
+      });
+    }
+  } else {
+    // Fallback: no existing patterns or LLM failed — create individual patterns
+    for (const note of validNotes) {
+      const reason = note.reason.trim();
+      const platform =
+        note.platform ?? note.targetPlatform ?? 'unknown';
+
       list.push({
         id: generateId(),
         rule: reason,
@@ -310,6 +354,39 @@ export function extractAndSaveRejectionPatterns(
 
   data.updatedAt = now;
   writeJsonFile('rejection-patterns.json', data);
+}
+
+function buildClassificationPrompt(
+  existingPatterns: RejectionPattern[],
+  rejectionNotes: Array<{ reason: string }>
+): string {
+  const patternsBlock = existingPatterns
+    .map(
+      (p, i) => `${i + 1}. [id: ${p.id}] "${p.rule}" (strength: ${p.strength})`
+    )
+    .join('\n');
+
+  const rejectionsBlock = rejectionNotes
+    .map((n, i) => `${i}. "${n.reason.trim()}"`)
+    .join('\n');
+
+  return `You are classifying user rejection reasons into patterns. Each rejection reason should either match an existing pattern semantically, or be classified as a new pattern.
+
+<existing_patterns>
+${patternsBlock}
+</existing_patterns>
+
+<new_rejections>
+${rejectionsBlock}
+</new_rejections>
+
+For each rejection, determine:
+- "match" if it expresses the same concern as an existing pattern (even with different wording)
+- "new" if it represents a genuinely different rejection reason
+
+When creating a "new" pattern, write the rule as a concise, canonical instruction (e.g., "Avoid personal finance posts" not "This was a personal finance post").
+
+Return classifications for every rejection by its index.`;
 }
 
 /**

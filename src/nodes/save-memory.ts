@@ -57,7 +57,7 @@ export async function saveMemory(
   try {
     const mode = isIdeaMode ? 'idea' as const : 'business' as const;
 
-    extractAndSaveRejectionPatterns(
+    await extractAndSaveRejectionPatterns(
       mode,
       isIdeaMode ? state.ideaRejectionNotes : state.targetRejectionNotes
     );
