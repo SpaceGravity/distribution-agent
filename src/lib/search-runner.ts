@@ -233,7 +233,12 @@ export async function searchPlatforms(
       {
         timeout: CONFIG.SEARCH_TIMEOUT_MS,
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large results
-        env: { ...process.env },
+        env: {
+          ...process.env,
+          // Pass xAI API key for X search via last30days.py
+          // last30days.py reads XAI_API_KEY, not X_BEARER_TOKEN
+          XAI_API_KEY: CONFIG.X_BEARER_TOKEN || undefined,
+        },
       },
       (error, stdout, stderr) => {
         if (error) {
