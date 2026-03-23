@@ -68,12 +68,12 @@ export const graph = new StateGraph(DistributionStateSchema)
   .addNode('extractTargets', extractTargets)
   .addNode('enrichTargets', enrichTargets)
   .addNode('evaluateIdeaTargets', evaluateIdeaTargets, {
-    ends: ['batchReviewTargets', 'refineIdeaSearch', 'askIdeaHelp'],
+    ends: ['enrichTargets', 'refineIdeaSearch', 'askIdeaHelp'],
   })
   .addNode('refineIdeaSearch', refineIdeaSearch)
-  .addNode('askIdeaHelp', askIdeaHelp, { ends: ['refineIdeaSearch'] })
+  .addNode('askIdeaHelp', askIdeaHelp, { ends: ['refineIdeaSearch', 'enrichTargets'] })
   .addNode('batchReviewTargets', batchReviewTargets, {
-    ends: ['enrichTargets', 'generateIdeaCriteria'],
+    ends: ['saveMemory', 'generateIdeaCriteria'],
   })
   .addNode('exportCsv', exportCsv)
 
@@ -93,7 +93,7 @@ export const graph = new StateGraph(DistributionStateSchema)
   .addEdge('extractTargets', 'evaluateIdeaTargets')
   .addEdge('refineIdeaSearch', 'searchIdea')
   .addEdge('enrichTargets', 'exportCsv')
-  .addEdge('exportCsv', 'saveMemory')
+  .addEdge('exportCsv', 'batchReviewTargets')
 
   .compile({ checkpointer });
 

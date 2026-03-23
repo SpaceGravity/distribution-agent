@@ -1,5 +1,5 @@
 // evaluateIdeaTargets node — LLM evaluates targets against idea understanding
-// Routes to: batchReviewTargets, refineIdeaSearch, or askIdeaHelp
+// Routes to: enrichTargets, refineIdeaSearch, or askIdeaHelp
 
 import { Command } from '@langchain/langgraph';
 import z from 'zod';
@@ -80,7 +80,7 @@ export async function evaluateIdeaTargets(
         iterationCount: newIteration,
         ideaTargets: updatedTargets,
       },
-      goto: 'batchReviewTargets',
+      goto: 'enrichTargets',
     });
   }
 
