@@ -10,6 +10,47 @@ import type {
   IdeaTarget,
   IdeaRejectionNote,
 } from '../state.js';
+import type { CrossSessionMemory } from './memory.js';
+
+/**
+ * Formats cross-session memory as XML blocks for prompt injection.
+ * Returns empty string when no data — no prompt bloat on first run.
+ */
+function formatCrossSessionBlock(memory: CrossSessionMemory): string {
+  let block = '';
+
+  if (memory.rejectionPatterns.length > 0) {
+    block += `
+
+<cross_session_rejection_patterns>
+The user has established these rejection patterns across previous sessions. Apply them to avoid wasting time on targets the user consistently rejects.
+
+${memory.rejectionPatterns
+  .map(
+    (p) =>
+      `- [strength: ${p.strength}/10] ${p.rule} (platforms: ${p.platforms.join(', ')})`
+  )
+  .join('\n')}
+</cross_session_rejection_patterns>`;
+  }
+
+  if (memory.recentStrategies.length > 0) {
+    block += `
+
+<cross_session_successful_strategies>
+These search strategies worked well in previous sessions (sorted by approval rate). Use them as reference for effective keywords and query patterns.
+
+${memory.recentStrategies
+  .map(
+    (s) =>
+      `- "${s.productOrIdea}" — approval: ${Math.round(s.approvalRate * 100)}%, keywords: ${s.keywords.slice(0, 5).join(', ')}, queries: ${s.queries.slice(0, 3).join('; ')}`
+  )
+  .join('\n')}
+</cross_session_successful_strategies>`;
+  }
+
+  return block;
+}
 
 /**
  * Prompt for analyzing a business description file and extracting
@@ -52,7 +93,8 @@ export function criteriaGenerationPrompt(
   businessSummary: BusinessUnderstanding,
   evaluationHistory?: EvaluationRecord[],
   userGuidance?: string,
-  targetRejectionNotes?: TargetRejectionNote[]
+  targetRejectionNotes?: TargetRejectionNote[],
+  crossSessionMemory?: CrossSessionMemory
 ): string {
   let prompt = `You are a growth marketing expert. Generate search criteria to find potential customers for a product on social media and community platforms.
 
@@ -110,6 +152,10 @@ ${targetRejectionNotes
 </target_rejection_history>`;
   }
 
+  if (crossSessionMemory) {
+    prompt += formatCrossSessionBlock(crossSessionMemory);
+  }
+
   prompt += `
 
 Generate search criteria that will find posts, comments, and threads where potential customers are discussing problems this product solves.
@@ -151,7 +197,8 @@ export function evaluationPrompt(
   evaluationHistory: EvaluationRecord[],
   iterationCount: number,
   targetRejectionNotes?: TargetRejectionNote[],
-  totalResultCount?: number
+  totalResultCount?: number,
+  crossSessionMemory?: CrossSessionMemory
 ): string {
   let prompt = `You are evaluating search results for product-market fit. Your job is to determine whether the collected results contain enough high-quality opportunities for product outreach.
 
@@ -214,6 +261,10 @@ ${targetRejectionNotes
   )
   .join('\n')}
 </rejected_targets>`;
+  }
+
+  if (crossSessionMemory) {
+    prompt += formatCrossSessionBlock(crossSessionMemory);
   }
 
   prompt += `
@@ -427,7 +478,8 @@ export function ideaCriteriaPrompt(
   evaluationHistory?: EvaluationRecord[],
   userGuidance?: string,
   selectedPlatforms?: string[],
-  backfillCount?: number
+  backfillCount?: number,
+  crossSessionMemory?: CrossSessionMemory
 ): string {
   let prompt = `You are an expert at customer discovery and community research. Generate search queries to find people and communities related to a problem hypothesis.
 
@@ -490,6 +542,10 @@ ${rejectionNotes
 <backfill_target>
 We need approximately ${backfillCount} more targets to reach the desired count. Focus queries on finding new, diverse targets that differ from previously found ones.
 </backfill_target>`;
+  }
+
+  if (crossSessionMemory) {
+    prompt += formatCrossSessionBlock(crossSessionMemory);
   }
 
   prompt += `
@@ -596,7 +652,8 @@ Aim for a balanced category mix when possible:
 export function evaluateIdeaTargetsPrompt(
   targets: IdeaTarget[],
   ideaUnderstanding: IdeaUnderstanding,
-  rejectionNotes?: IdeaRejectionNote[]
+  rejectionNotes?: IdeaRejectionNote[],
+  crossSessionMemory?: CrossSessionMemory
 ): string {
   let prompt = `You are evaluating discovered targets for idea validation quality. Determine whether the targets represent a good set of people and communities to validate the problem hypothesis.
 
@@ -625,6 +682,10 @@ ${rejectionNotes
   .map((note) => `- [${note.platform}] "${note.name}" — ${note.reason}`)
   .join('\n')}
 </rejection_history>`;
+  }
+
+  if (crossSessionMemory) {
+    prompt += formatCrossSessionBlock(crossSessionMemory);
   }
 
   prompt += `

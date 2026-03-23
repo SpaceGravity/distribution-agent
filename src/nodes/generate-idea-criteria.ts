@@ -6,6 +6,7 @@ import type { DistributionState } from '../state.js';
 import { SearchCriteriaSchema } from '../state.js';
 import { llm } from '../lib/llm.js';
 import { ideaCriteriaPrompt } from '../lib/prompts.js';
+import { loadCrossSessionMemory } from '../lib/memory.js';
 
 const IdeaCriteriaOutputSchema = z.object({
   searchCriteria: SearchCriteriaSchema,
@@ -20,6 +21,7 @@ export async function generateIdeaCriteria(
   }
 
   const structuredLlm = llm.withStructuredOutput(IdeaCriteriaOutputSchema);
+  const memory = loadCrossSessionMemory('idea');
 
   const prompt = ideaCriteriaPrompt(
     state.ideaUnderstanding,
@@ -31,7 +33,8 @@ export async function generateIdeaCriteria(
       : undefined,
     state.userGuidance ?? undefined,
     state.selectedPlatforms,
-    state.backfillCount ?? undefined
+    state.backfillCount ?? undefined,
+    memory
   );
 
   const result = await structuredLlm.invoke(prompt);

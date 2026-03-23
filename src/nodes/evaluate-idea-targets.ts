@@ -6,6 +6,7 @@ import z from 'zod';
 import type { DistributionState } from '../state.js';
 import { llm } from '../lib/llm.js';
 import { evaluateIdeaTargetsPrompt } from '../lib/prompts.js';
+import { loadCrossSessionMemory } from '../lib/memory.js';
 import { CONFIG } from '../config.js';
 
 const IdeaEvaluationDecisionSchema = z.object({
@@ -39,12 +40,14 @@ export async function evaluateIdeaTargets(
   const structuredLlm = llm.withStructuredOutput(
     IdeaEvaluationDecisionSchema
   );
+  const memory = loadCrossSessionMemory('idea');
   const prompt = evaluateIdeaTargetsPrompt(
     activeTargets,
     state.ideaUnderstanding,
     state.ideaRejectionNotes.length > 0
       ? state.ideaRejectionNotes
-      : undefined
+      : undefined,
+    memory
   );
 
   const decision = await structuredLlm.invoke(prompt);

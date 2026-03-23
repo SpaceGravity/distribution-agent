@@ -6,6 +6,7 @@ import z from 'zod';
 import type { DistributionState } from '../state.js';
 import { llm } from '../lib/llm.js';
 import { evaluationPrompt } from '../lib/prompts.js';
+import { loadCrossSessionMemory } from '../lib/memory.js';
 import { CONFIG } from '../config.js';
 
 // Structured output for evaluation decision
@@ -32,6 +33,7 @@ export async function evaluate(state: DistributionState): Promise<Command> {
     .slice(0, 30);
 
   const structuredLlm = llm.withStructuredOutput(EvaluationDecisionSchema);
+  const memory = loadCrossSessionMemory('business');
   const prompt = evaluationPrompt(
     state.businessUnderstanding,
     topResults,
@@ -40,7 +42,8 @@ export async function evaluate(state: DistributionState): Promise<Command> {
     state.targetRejectionNotes.length > 0
       ? state.targetRejectionNotes
       : undefined,
-    state.searchResults.length
+    state.searchResults.length,
+    memory
   );
 
   const decision = await structuredLlm.invoke(prompt);

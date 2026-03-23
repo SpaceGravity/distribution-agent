@@ -83,7 +83,7 @@ src/
   state.ts        # State schema with reducers
   config.ts       # Configuration
   nodes/          # All graph nodes (23 files)
-  lib/            # Shared utilities (LLM, prompts, search, enrichment, CSV)
+  lib/            # Shared utilities (LLM, prompts, memory, search, enrichment, CSV)
 docs/             # Specs and examples
 .agent/           # System docs, SOPs, tasks, lessons
 ```
@@ -123,6 +123,17 @@ START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> ext
                                                                                                |
                                                                                         generateOutreach -> reviewOutreach -> exportCsv -> saveMemory -> END
 ```
+
+## Cross-Session Memory
+
+The agent persists learned patterns across sessions in `~/.distribution-agent/memory/` (4 JSON files). Rejection patterns, successful strategies, and preferences survive across sessions so the agent improves over time.
+
+- **Rejection patterns** strengthen with repetition (strength 1-10). Only injected into prompts at strength >= 2.
+- **Strategies** track which keywords/queries worked (approval rate). Top 5 injected as reference.
+- **Preferences** track platform usage and reply style feedback from user edits.
+- **Session history** logs past runs (capped at 50).
+
+Memory is read lazily by 5 reader nodes and written by `saveMemory` at session end. No LLM calls — extraction is deterministic.
 
 ## Key Lessons & Gotchas
 
@@ -164,6 +175,7 @@ START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> ext
 | `.agent/Lessons/subprocess-env-passthrough.md` | Always pass `{ ...process.env }` to child processes — restricted env strips API keys |
 | `.agent/Lessons/xai-api-responses-endpoint.md` | xAI `/v1/responses` endpoint may hang on some plans — X search diagnosis steps |
 | `.agent/Lessons/evaluation-loop-thresholds.md` | Evaluation prompts need concrete thresholds (≥3 targets), not vague "be strict" |
+| `.agent/Lessons/cross-session-memory-design.md` | Memory is external to state, strength >= 2 threshold, deterministic extraction, atomic writes |
 
 ### Skills
 

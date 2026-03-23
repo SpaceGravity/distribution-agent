@@ -40,6 +40,7 @@ export const CONFIG = {
   DB_PATH: resolve(
     process.env.DISTRIBUTION_AGENT_DB_PATH ?? './distribution-agent.sqlite'
   ),
+  MEMORY_DIR: resolve(homedir(), '.distribution-agent', 'memory'),
 
   // Search runner
   SEARCH_TIMEOUT_MS: 5 * 60 * 1000, // 5 minutes

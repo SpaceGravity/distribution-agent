@@ -1,7 +1,12 @@
-// saveMemory node — Logs run summary to console
-// File I/O removed: search-strategies.json was write-only dead code (never read)
+// saveMemory node — Logs run summary and persists cross-session memory
 
 import type { DistributionState } from '../state.js';
+import {
+  extractAndSaveRejectionPatterns,
+  saveSessionStrategy,
+  savePreferences,
+  saveSessionSummary,
+} from '../lib/memory.js';
 
 export async function saveMemory(
   state: DistributionState
@@ -47,6 +52,23 @@ export async function saveMemory(
   console.log(`Search iterations: ${state.iterationCount ?? 0}`);
   console.log(`Results found: ${state.searchResults.length}`);
   console.log('======================================\n');
+
+  // Persist cross-session memory (non-critical — never blocks graph)
+  try {
+    const mode = isIdeaMode ? 'idea' as const : 'business' as const;
+
+    extractAndSaveRejectionPatterns(
+      mode,
+      isIdeaMode ? state.ideaRejectionNotes : state.targetRejectionNotes
+    );
+    saveSessionStrategy(mode, state);
+    savePreferences(state);
+    saveSessionSummary(mode, state);
+
+    console.log('[saveMemory] Cross-session memory persisted.');
+  } catch (err) {
+    console.warn('[saveMemory] Failed to persist cross-session memory:', err);
+  }
 
   return {};
 }
