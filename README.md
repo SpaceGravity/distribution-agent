@@ -161,6 +161,9 @@ START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> ext
 | `.agent/Lessons/browser-automation-studio.md` | Browser automation lessons: JS scroll/click, Polly icon, extension disconnects |
 | `.agent/Lessons/search-query-hygiene.md` | LLM queries must not include `site:` operators; per-platform isolation; quick depth for idea path |
 | `.agent/Lessons/external-api-model-aliases.md` | External API model IDs can change without notice; verify against `/v1/models` endpoint |
+| `.agent/Lessons/subprocess-env-passthrough.md` | Always pass `{ ...process.env }` to child processes — restricted env strips API keys |
+| `.agent/Lessons/xai-api-responses-endpoint.md` | xAI `/v1/responses` endpoint may hang on some plans — X search diagnosis steps |
+| `.agent/Lessons/evaluation-loop-thresholds.md` | Evaluation prompts need concrete thresholds (≥3 targets), not vague "be strict" |
 
 ### Skills
 

@@ -233,17 +233,7 @@ export async function searchPlatforms(
       {
         timeout: CONFIG.SEARCH_TIMEOUT_MS,
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large results
-        env: {
-          PATH: process.env.PATH,
-          HOME: process.env.HOME,
-          PYTHONPATH: process.env.PYTHONPATH,
-          VIRTUAL_ENV: process.env.VIRTUAL_ENV,
-          LANG: process.env.LANG,
-          LC_ALL: process.env.LC_ALL,
-          // Pass xAI API key for X search via last30days.py
-          // last30days.py reads XAI_API_KEY, not X_BEARER_TOKEN
-          XAI_API_KEY: CONFIG.X_BEARER_TOKEN || undefined,
-        },
+        env: { ...process.env },
       },
       (error, stdout, stderr) => {
         if (error) {
@@ -251,10 +241,23 @@ export async function searchPlatforms(
             `[search-runner] Error running last30days.py: ${error.message}`
           );
           if (stderr) {
-            console.error(`[search-runner] stderr: ${stderr}`);
+            console.error(`[search-runner] stderr: ${stderr.slice(0, 500)}`);
           }
           reject(new Error(`Search failed: ${error.message}`));
           return;
+        }
+
+        // Log stderr warnings even on success (e.g. X 403 errors)
+        if (stderr) {
+          const errorLines = stderr
+            .split('\n')
+            .filter((l: string) => /error|fail|timeout|403|401/i.test(l))
+            .slice(0, 3);
+          if (errorLines.length > 0) {
+            console.warn(
+              `[search-runner] Warnings: ${errorLines.join(' | ')}`
+            );
+          }
         }
 
         try {
@@ -294,9 +297,22 @@ export async function searchPlatforms(
           // Sort by score descending
           results.sort((a, b) => b.score - a.score);
 
-          console.log(
-            `[search-runner] Found ${results.length} results across ${platforms.join(', ')}`
-          );
+          if (results.length === 0) {
+            // Log diagnostics when no results found
+            const keys = Object.keys(report).filter(
+              (k) => Array.isArray(report[k])
+            );
+            const arraySizes = keys.map(
+              (k) => `${k}:${(report[k] as unknown[]).length}`
+            );
+            console.warn(
+              `[search-runner] 0 results — JSON keys with arrays: ${arraySizes.join(', ') || 'none'}. stdout size: ${stdout.length} bytes`
+            );
+          } else {
+            console.log(
+              `[search-runner] Found ${results.length} results across ${platforms.join(', ')}`
+            );
+          }
           resolve(results);
         } catch (parseError) {
           console.error(

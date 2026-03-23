@@ -645,9 +645,13 @@ Return as structured JSON:
 }
 
 approvedTargetIds: IDs of targets that pass evaluation and are worth reaching out to.
-rejectedTargetIds: IDs of targets that should be excluded (poor match, irrelevant, low quality). Targets in neither list remain pending for the next evaluation round.
+rejectedTargetIds: IDs of targets that should be excluded (poor match, irrelevant, low quality).
 
-Be strict: only approve targets that genuinely match the target demographic and could provide validation signal.`;
+Decision guidelines:
+- Mark satisfactory=true if there are at least 3 approved targets with reasonable audience match.
+- Approve any target that is plausibly relevant — perfection is not required for validation outreach.
+- Only reject targets that are clearly irrelevant (wrong domain, spam, unrelated topic).
+- Prefer approving borderline targets over looping for more searches — real conversations beat perfect targeting.`;
 
   return prompt;
 }
