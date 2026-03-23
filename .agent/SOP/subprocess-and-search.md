@@ -24,11 +24,14 @@ async function runPythonScript(
   const { stdout } = await execFileAsync('python3', args, {
     timeout: 5 * 60 * 1000, // 5 min
     maxBuffer: 10 * 1024 * 1024, // 10MB
+    env: { ...process.env }, // CRITICAL: pass full env for API keys
   });
 
   return JSON.parse(stdout);
 }
 ```
+
+> **CRITICAL**: Always use `env: { ...process.env }` — restricting env vars strips API keys that the Python script needs (e.g., `XAI_API_KEY`, `BRAVE_API_KEY`). This is especially important inside LangGraph Studio, which injects `.env` vars into `process.env`.
 
 ## last30days integration
 
@@ -136,6 +139,26 @@ try {
   console.warn(`Search failed for "${query}": ${err}`);
   return [];
 }
+```
+
+### Log stderr warnings even on success
+The Python script may succeed (exit 0) but still have warnings (e.g., X search timed out). Log these:
+```ts
+if (stderr) {
+  const errorLines = stderr.split('\n')
+    .filter(l => /error|fail|timeout|403|401/i.test(l))
+    .slice(0, 3);
+  if (errorLines.length > 0) {
+    console.warn(`[search-runner] Warnings: ${errorLines.join(' | ')}`);
+  }
+}
+```
+
+### Prompt: no site: operators
+LLMs sometimes generate queries like `"AI tools site:reddit.com"`. The `site:` operator confuses the ScrapeCreators API. Always instruct prompts to avoid them:
+```
+Do NOT include "site:reddit.com", "site:x.com", or any site: operators in queries.
+Platform targeting is handled separately.
 ```
 
 ## MCP server wrapper
