@@ -24,7 +24,7 @@ export async function batchReviewTargets(
     );
     return new Command({
       update: { ideaTargets: approvePendingTargets(state.ideaTargets) },
-      goto: 'enrichTargets',
+      goto: 'saveMemory',
     });
   }
 
@@ -66,7 +66,7 @@ export async function batchReviewTargets(
     console.log('[batchReviewTargets] All targets approved.');
     return new Command({
       update: { ideaTargets: approvePendingTargets(state.ideaTargets) },
-      goto: 'enrichTargets',
+      goto: 'saveMemory',
     });
   }
 
@@ -81,7 +81,7 @@ export async function batchReviewTargets(
     );
     return new Command({
       update: { ideaTargets: approvePendingTargets(state.ideaTargets) },
-      goto: 'enrichTargets',
+      goto: 'saveMemory',
     });
   }
 

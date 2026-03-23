@@ -71,7 +71,7 @@ export async function askIdeaHelp(
     console.log(
       `[askIdeaHelp] User wants to proceed with ${state.ideaTargets.length} existing targets.`
     );
-    // Mark all pending targets as approved so batchReviewTargets can present them
+    // Mark all pending targets as approved so they proceed to enrichment + CSV
     const updatedTargets = state.ideaTargets.map((t) =>
       t.status === 'pending' ? { ...t, status: 'approved' as const } : t
     );
@@ -79,7 +79,7 @@ export async function askIdeaHelp(
       update: {
         ideaTargets: updatedTargets,
       },
-      goto: 'batchReviewTargets',
+      goto: 'enrichTargets',
     });
   }
 
