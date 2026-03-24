@@ -8,7 +8,7 @@ import type {
   IdeaTarget,
   SearchResultItem,
 } from '../state.js';
-import { llm } from '../lib/llm.js';
+import { safeStructuredInvoke } from '../lib/llm.js';
 import { extractTargetsPrompt } from '../lib/prompts.js';
 import { CONFIG } from '../config.js';
 
@@ -101,27 +101,38 @@ export async function extractTargets(
     }
   }
 
-  const structuredLlm = llm.withStructuredOutput(ExtractionOutputSchema);
+  const platforms = state.selectedPlatforms ?? [];
   const prompt = extractTargetsPrompt(
     topResults,
     state.ideaUnderstanding,
-    state.selectedPlatforms
+    platforms
   );
-  const extraction = await structuredLlm.invoke(prompt);
+  const extraction: z.infer<typeof ExtractionOutputSchema> =
+    await safeStructuredInvoke(
+      ExtractionOutputSchema,
+      prompt,
+      'extractTargets'
+    );
+
+  const rawTargets = extraction.targets ?? [];
+  if (rawTargets.length === 0) {
+    console.warn('[extractTargets] LLM returned zero targets.');
+    return { ideaTargets: [] };
+  }
 
   // Hard-filter: only keep targets whose platform is in selectedPlatforms
   const allowedPlatforms = new Set(
-    state.selectedPlatforms.map((p) => p.toLowerCase())
+    platforms.map((p) => p.toLowerCase())
   );
   const filteredTargets = allowedPlatforms.size > 0
-    ? extraction.targets.filter((t) =>
+    ? rawTargets.filter((t) =>
         allowedPlatforms.has(t.platform.toLowerCase())
       )
-    : extraction.targets;
+    : rawTargets;
 
-  if (filteredTargets.length < extraction.targets.length) {
+  if (filteredTargets.length < rawTargets.length) {
     console.log(
-      `[extractTargets] Platform filter removed ${extraction.targets.length - filteredTargets.length} off-platform targets`
+      `[extractTargets] Platform filter removed ${rawTargets.length - filteredTargets.length} off-platform targets`
     );
   }
 

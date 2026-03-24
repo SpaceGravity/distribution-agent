@@ -4,7 +4,7 @@
 import z from 'zod';
 import type { DistributionState } from '../state.js';
 import { SearchCriteriaSchema } from '../state.js';
-import { llm } from '../lib/llm.js';
+import { safeStructuredInvoke } from '../lib/llm.js';
 import { ideaCriteriaPrompt } from '../lib/prompts.js';
 import { loadCrossSessionMemory } from '../lib/memory.js';
 
@@ -20,7 +20,6 @@ export async function generateIdeaCriteria(
     throw new Error('Idea understanding not available in state.');
   }
 
-  const structuredLlm = llm.withStructuredOutput(IdeaCriteriaOutputSchema);
   const memory = loadCrossSessionMemory('idea');
 
   const prompt = ideaCriteriaPrompt(
@@ -37,7 +36,11 @@ export async function generateIdeaCriteria(
     memory
   );
 
-  const result = await structuredLlm.invoke(prompt);
+  const result = await safeStructuredInvoke(
+    IdeaCriteriaOutputSchema,
+    prompt,
+    'generateIdeaCriteria'
+  );
 
   // Cap content queries to 5, community queries to 3 (immutable — no in-place mutation)
   const cappedCriteria = {

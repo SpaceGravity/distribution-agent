@@ -62,7 +62,7 @@ src/
 │   │   === Shared ===
 │   └── save-memory.ts              # Persist cross-session memory to disk (both modes)
 ├── lib/
-│   ├── llm.ts                      # Shared ChatAnthropic instance
+│   ├── llm.ts                      # Shared ChatAnthropic instance + safeStructuredInvoke helper
 │   ├── prompts.ts                  # 9 prompt functions (pure, no LLM calls)
 │   ├── memory.ts                   # Cross-session memory: read/write/extract (no LLM, no deps)
 │   ├── search-runner.ts            # Subprocess wrapper for last30days.py
@@ -154,7 +154,7 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
 - Model: `claude-sonnet-4-6` (configurable via `config.ts`)
 - **Business path**: understandBusiness, generateCriteria, evaluate, generateReplies, reviewReply (regenerate)
 - **Idea path**: understandIdea, generateIdeaCriteria, extractTargets, evaluateIdeaTargets, generateOutreach, reviewOutreach (regenerate)
-- Structured output via `.withStructuredOutput(ZodSchema)`
+- Structured output via `safeStructuredInvoke(ZodSchema, prompt, nodeName)` — a try-catch wrapper in `lib/llm.ts` that logs diagnostics and re-throws with descriptive errors (never bare `.withStructuredOutput().invoke()`)
 - Auth: `ANTHROPIC_API_KEY` env var
 
 ### 2. last30days.py (Search)

@@ -5,7 +5,7 @@ import { readFileSync, statSync } from 'fs';
 import { resolve } from 'path';
 import type { DistributionState } from '../state.js';
 import { BusinessUnderstandingSchema } from '../state.js';
-import { llm } from '../lib/llm.js';
+import { safeStructuredInvoke } from '../lib/llm.js';
 import { businessUnderstandingPrompt } from '../lib/prompts.js';
 import { CONFIG } from '../config.js';
 
@@ -65,11 +65,12 @@ export async function understandBusiness(
   }
 
   // Generate structured business understanding via Claude
-  const structuredLlm = llm.withStructuredOutput(
-    BusinessUnderstandingSchema
-  );
   const prompt = businessUnderstandingPrompt(businessContent);
-  const understanding = await structuredLlm.invoke(prompt);
+  const understanding = await safeStructuredInvoke(
+    BusinessUnderstandingSchema,
+    prompt,
+    'understandBusiness'
+  );
 
   console.log(
     `[understandBusiness] Generated understanding: ${understanding.summary.substring(0, 100)}...`

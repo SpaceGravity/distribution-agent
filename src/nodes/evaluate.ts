@@ -4,7 +4,7 @@
 import { Command } from '@langchain/langgraph';
 import z from 'zod';
 import type { DistributionState } from '../state.js';
-import { llm } from '../lib/llm.js';
+import { safeStructuredInvoke } from '../lib/llm.js';
 import { evaluationPrompt } from '../lib/prompts.js';
 import { loadCrossSessionMemory } from '../lib/memory.js';
 import { CONFIG } from '../config.js';
@@ -32,7 +32,6 @@ export async function evaluate(state: DistributionState): Promise<Command> {
     .sort((a, b) => b.score - a.score)
     .slice(0, 30);
 
-  const structuredLlm = llm.withStructuredOutput(EvaluationDecisionSchema);
   const memory = loadCrossSessionMemory('business');
   const prompt = evaluationPrompt(
     state.businessUnderstanding,
@@ -46,7 +45,11 @@ export async function evaluate(state: DistributionState): Promise<Command> {
     memory
   );
 
-  const decision = await structuredLlm.invoke(prompt);
+  const decision = await safeStructuredInvoke(
+    EvaluationDecisionSchema,
+    prompt,
+    'evaluate'
+  );
 
   // Build evaluation record
   const record = {

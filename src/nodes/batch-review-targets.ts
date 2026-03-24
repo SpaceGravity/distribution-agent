@@ -99,8 +99,18 @@ export async function batchReviewTargets(
     };
   });
 
-  // Remove rejected targets
-  const updatedTargets = state.ideaTargets.filter((t) => !rejectedIds.has(t.id));
+  // Mark rejected targets with status (upsert reducer would resurrect filtered-out entries)
+  const updatedTargets = state.ideaTargets.map((t) => {
+    if (rejectedIds.has(t.id)) {
+      const rejection = rejections.find((r) => r.id === t.id);
+      return {
+        ...t,
+        status: 'rejected' as const,
+        rejectionReason: rejection?.reason ?? 'User rejected',
+      };
+    }
+    return t;
+  });
 
   // Calculate how many new targets the next search should find
   const targetCount = state.targetCount ?? CONFIG.DEFAULT_TARGET_COUNT;
