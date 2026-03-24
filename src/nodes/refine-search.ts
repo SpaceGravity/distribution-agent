@@ -3,7 +3,7 @@
 
 import type { DistributionState } from '../state.js';
 import { SearchCriteriaSchema } from '../state.js';
-import { llm } from '../lib/llm.js';
+import { safeStructuredInvoke } from '../lib/llm.js';
 import { criteriaGenerationPrompt } from '../lib/prompts.js';
 import { loadCrossSessionMemory } from '../lib/memory.js';
 
@@ -18,7 +18,6 @@ export async function refineSearch(
     `[refineSearch] Refining criteria based on ${state.evaluationHistory.length} previous evaluations`
   );
 
-  const structuredLlm = llm.withStructuredOutput(SearchCriteriaSchema);
   const memory = loadCrossSessionMemory('business');
 
   // Pass full evaluation history so the LLM avoids repeating failed strategies
@@ -32,7 +31,11 @@ export async function refineSearch(
     memory
   );
 
-  const criteria = await structuredLlm.invoke(prompt);
+  const criteria = await safeStructuredInvoke(
+    SearchCriteriaSchema,
+    prompt,
+    'refineSearch'
+  );
 
   // Preserve user's platform selection
   criteria.platformFilters = state.selectedPlatforms;

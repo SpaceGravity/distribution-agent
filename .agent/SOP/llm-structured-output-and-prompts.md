@@ -2,10 +2,10 @@
 
 ## Structured output with Zod
 
-```ts
-import { ChatAnthropic } from '@langchain/anthropic';
+**Always use `safeStructuredInvoke`** from `src/lib/llm.ts` instead of calling `withStructuredOutput().invoke()` directly. The helper wraps the LLM call in try-catch with diagnostics — without it, LLM failures surface as empty TypeErrors in LangGraph Studio.
 
-const llm = new ChatAnthropic({ model: 'claude-sonnet-4-6' });
+```ts
+import { safeStructuredInvoke } from '../lib/llm.js';
 
 const OutputSchema = z.object({
   satisfactory: z.boolean(),
@@ -13,10 +13,15 @@ const OutputSchema = z.object({
   suggestions: z.string().optional(),
 });
 
-const structuredLlm = llm.withStructuredOutput(OutputSchema);
-const result = await structuredLlm.invoke(promptString);
-// result is typed: { satisfactory: boolean, reasoning: string, suggestions?: string }
+// GOOD — uses safe wrapper with diagnostics
+const result = await safeStructuredInvoke(OutputSchema, promptString, 'nodeName');
+
+// BAD — bare call, no error handling, silent TypeError on failure
+// const structuredLlm = llm.withStructuredOutput(OutputSchema);
+// const result = await structuredLlm.invoke(promptString);
 ```
+
+On failure, `safeStructuredInvoke` logs the error type, message, and prompt length, then re-throws with a descriptive `[nodeName] LLM call failed: ...` message. See `.agent/Lessons/llm-call-resilience.md`.
 
 ## Prompt template pattern
 

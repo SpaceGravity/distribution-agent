@@ -603,7 +603,7 @@ ${results
     (r, i) => `${i + 1}. [${r.platform}] "${r.title}"
    URL: ${r.url}
    Author: ${r.author}
-   Text: ${r.text.slice(0, 300)}${r.text.length > 300 ? '...' : ''}
+   Text: ${(r.text ?? '').slice(0, 300)}${(r.text ?? '').length > 300 ? '...' : ''}
    Relevance: ${r.relevanceReason ?? 'not scored'}`
   )
   .join('\n\n')}

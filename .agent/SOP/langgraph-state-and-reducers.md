@@ -109,5 +109,22 @@ The idea path adds 8 new fields to state. Key patterns:
 - `ideaCommunityQueries: z.array(z.string()).optional()` — community-discovery queries separate from `searchCriteria.queries`
 - `csvOutputPath: z.string().optional()` — set by `exportCsv` node for summary logging
 
+### Never filter-remove entries from upsert-reducer arrays
+The upsert reducer merges `left` (existing state) with `right` (new update). If you filter out entries in `right`, the originals from `left` survive — creating "zombie" entries that can't be removed.
+
+```ts
+// BAD — filtered entries come back from left side of reducer
+const updated = state.ideaTargets.filter(t => !rejectedIds.has(t.id));
+return new Command({ update: { ideaTargets: updated } });
+
+// GOOD — mark status so upsert overwrites the existing entry
+const updated = state.ideaTargets.map(t =>
+  rejectedIds.has(t.id) ? { ...t, status: 'rejected' as const } : t
+);
+return new Command({ update: { ideaTargets: updated } });
+```
+
+See `.agent/Lessons/llm-call-resilience.md` for the full rule.
+
 ### Command updates go through reducers
 When a node returns `new Command({ update: { items: [newItem] } })`, the `items` array goes through the reducer — it does NOT replace the array. This is by design. If the reducer is `concat`, it appends. If it's dedup, it merges.

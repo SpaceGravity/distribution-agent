@@ -144,6 +144,8 @@ Memory is read lazily by 5 reader nodes and written by `saveMemory` at session e
 | Content searches run per-platform to isolate timeouts | `searchIdea` runs one subprocess per platform per query. Without this, a single platform timeout (e.g. X rate limit at 60s) triggers the global kill and discards results from other platforms. |
 | `askIdeaHelp` supports "proceed" to skip to review | After max iterations, the user can type "proceed" (or similar intent) to route directly to `batchReviewTargets` with existing targets, instead of always looping back to `refineIdeaSearch`. |
 | xAI model aliases can go stale | xAI renames models without notice (e.g. `grok-4-1-fast` became `grok-4-1-fast-non-reasoning`). If X search returns 0 results, verify the alias in `last30days/scripts/lib/models.py` against `GET /v1/models` and clear `~/.cache/last30days/model_selection.json`. |
+| Always use `safeStructuredInvoke` for LLM calls | Bare `withStructuredOutput().invoke()` throws empty TypeErrors on failure. The helper in `lib/llm.ts` wraps every call with try-catch, logs diagnostics, and re-throws with descriptive messages. |
+| Never filter-remove from upsert-reducer arrays | Upsert reducers merge left+right — filtering entries from `right` lets originals from `left` survive as "zombies". Mark status instead (e.g. `status: 'rejected'`). |
 
 ## Documentation Index
 
@@ -176,6 +178,7 @@ Memory is read lazily by 5 reader nodes and written by `saveMemory` at session e
 | `.agent/Lessons/xai-api-responses-endpoint.md` | xAI `/v1/responses` endpoint may hang on some plans — X search diagnosis steps |
 | `.agent/Lessons/evaluation-loop-thresholds.md` | Evaluation prompts need concrete thresholds (≥3 targets), not vague "be strict" |
 | `.agent/Lessons/cross-session-memory-design.md` | Memory is external to state, strength >= 2 threshold, deterministic extraction, atomic writes |
+| `.agent/Lessons/llm-call-resilience.md` | Always use `safeStructuredInvoke`; never filter-remove from upsert-reducer arrays |
 
 ### Skills
 

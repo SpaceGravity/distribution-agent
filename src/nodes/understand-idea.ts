@@ -5,7 +5,7 @@ import { readFileSync, statSync } from 'fs';
 import { resolve } from 'path';
 import type { DistributionState } from '../state.js';
 import { IdeaUnderstandingSchema } from '../state.js';
-import { llm } from '../lib/llm.js';
+import { safeStructuredInvoke } from '../lib/llm.js';
 import { ideaUnderstandingPrompt } from '../lib/prompts.js';
 import { CONFIG } from '../config.js';
 
@@ -45,9 +45,12 @@ export async function understandIdea(
   );
 
   // Generate structured idea understanding via Claude
-  const structuredLlm = llm.withStructuredOutput(IdeaUnderstandingSchema);
   const prompt = ideaUnderstandingPrompt(ideaContent);
-  const understanding = await structuredLlm.invoke(prompt);
+  const understanding = await safeStructuredInvoke(
+    IdeaUnderstandingSchema,
+    prompt,
+    'understandIdea'
+  );
 
   console.log(
     `[understandIdea] Problem hypothesis: ${understanding.problemHypothesis.substring(0, 100)}...`

@@ -4,7 +4,7 @@
 import { Command } from '@langchain/langgraph';
 import z from 'zod';
 import type { DistributionState } from '../state.js';
-import { llm } from '../lib/llm.js';
+import { safeStructuredInvoke } from '../lib/llm.js';
 import { evaluateIdeaTargetsPrompt } from '../lib/prompts.js';
 import { loadCrossSessionMemory } from '../lib/memory.js';
 import { CONFIG } from '../config.js';
@@ -37,9 +37,6 @@ export async function evaluateIdeaTargets(
     (t) => !rejectedIds.has(t.id)
   );
 
-  const structuredLlm = llm.withStructuredOutput(
-    IdeaEvaluationDecisionSchema
-  );
   const memory = loadCrossSessionMemory('idea');
   const prompt = evaluateIdeaTargetsPrompt(
     activeTargets,
@@ -50,7 +47,11 @@ export async function evaluateIdeaTargets(
     memory
   );
 
-  const decision = await structuredLlm.invoke(prompt);
+  const decision = await safeStructuredInvoke(
+    IdeaEvaluationDecisionSchema,
+    prompt,
+    'evaluateIdeaTargets'
+  );
 
   // Build evaluation record
   const record = {

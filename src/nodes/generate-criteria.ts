@@ -3,7 +3,7 @@
 
 import type { DistributionState } from '../state.js';
 import { SearchCriteriaSchema } from '../state.js';
-import { llm } from '../lib/llm.js';
+import { safeStructuredInvoke } from '../lib/llm.js';
 import { criteriaGenerationPrompt } from '../lib/prompts.js';
 import { loadCrossSessionMemory } from '../lib/memory.js';
 
@@ -14,7 +14,6 @@ export async function generateCriteria(
     throw new Error('Business understanding not available in state.');
   }
 
-  const structuredLlm = llm.withStructuredOutput(SearchCriteriaSchema);
   const memory = loadCrossSessionMemory('business');
 
   const prompt = criteriaGenerationPrompt(
@@ -29,7 +28,11 @@ export async function generateCriteria(
     memory
   );
 
-  const criteria = await structuredLlm.invoke(prompt);
+  const criteria = await safeStructuredInvoke(
+    SearchCriteriaSchema,
+    prompt,
+    'generateCriteria'
+  );
 
   // Override platform filters with user's selection
   criteria.platformFilters = state.selectedPlatforms;
