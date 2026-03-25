@@ -72,9 +72,18 @@ export async function evaluateIdeaTargets(
     // Mark approved and explicitly rejected targets
     const approvedIds = new Set(decision.approvedTargetIds);
     const rejectedByLlm = new Set(decision.rejectedTargetIds ?? []);
+
+    // Safeguard: if LLM said satisfactory but returned empty approvedTargetIds,
+    // auto-approve all active (non-rejected) targets
+    const autoApproveAll = approvedIds.size === 0;
+    if (autoApproveAll) {
+      console.warn('[evaluateIdeaTargets] LLM returned satisfactory with empty approvedTargetIds — auto-approving all active targets');
+    }
+
     const updatedTargets = state.ideaTargets.map((t) => {
-      if (approvedIds.has(t.id)) return { ...t, status: 'approved' as const };
       if (rejectedByLlm.has(t.id)) return { ...t, status: 'rejected' as const, rejectionReason: 'LLM evaluation' };
+      if (autoApproveAll && !rejectedIds.has(t.id)) return { ...t, status: 'approved' as const };
+      if (approvedIds.has(t.id)) return { ...t, status: 'approved' as const };
       return t; // not mentioned = stays pending for next eval
     });
 

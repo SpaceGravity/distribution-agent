@@ -70,11 +70,6 @@ All discovered targets presented at once:
 - `{ "approved": true }` — approve all targets
 - `{ "rejections": [{ "id": "...", "reason": "..." }] }` — reject specific targets (triggers backfill search)
 
-### Outreach Review (`reviewOutreach`)
-All outreach drafts presented at once:
-- `{ "approved": true }` — approve all drafts
-- `{ "edits": [{ "id": "...", "feedback": "..." }], "rejections": ["id1"] }` — edit or reject specific drafts
-
 ## Project Structure
 
 ```
@@ -82,7 +77,7 @@ src/
   index.ts        # Graph definition and entry point (23 nodes)
   state.ts        # State schema with reducers
   config.ts       # Configuration
-  nodes/          # All graph nodes (23 files)
+  nodes/          # All graph nodes (21 files)
   lib/            # Shared utilities (LLM, prompts, memory, search, enrichment, CSV)
 docs/             # Specs and examples
 .agent/           # System docs, SOPs, tasks, lessons
@@ -109,19 +104,19 @@ START -> getInput -> understandBusiness -> generateCriteria -> search -> evaluat
 
 ### Idea Path
 ```
-START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> extractTargets -> enrichTargets -> evaluateIdeaTargets
+START -> getInput -> understandIdea -> generateIdeaCriteria -> searchIdea -> extractTargets -> evaluateIdeaTargets
                                               ^                                                                        |
                                               |                                                                 [satisfactory?]
-                                              |                                                                /      |        \
-                                              |                                                              yes   no(<5)   no(>=5)
-                                              |                                                              /       |          \
-                                              |                                                 batchReviewTargets  refineIdeaSearch  askIdeaHelp
-                                              |                                                      |                                   |
-                                              |                                                [rejections?]                        [proceed?]
-                                              |                                                /          \                        /        \
-                                              +-----------(backfill)----------yes               no        no(guidance)  yes→batchReviewTargets
-                                                                                               |
-                                                                                        generateOutreach -> reviewOutreach -> exportCsv -> saveMemory -> END
+                                              |                                                              /      |        \
+                                              |                                                            yes   no(<5)   no(>=5)
+                                              |                                                            /       |          \
+                                              |                                          enrichTargets  refineIdeaSearch  askIdeaHelp
+                                              |                                                |                                |
+                                              |                                           exportCsv                        [proceed?]
+                                              |                                                |                          /        \
+                                              |                                        batchReviewTargets        no(guidance)  yes→enrichTargets
+                                              |                                           /          \
+                                              +-----------(backfill)---------- yes         no → saveMemory -> END
 ```
 
 ## Cross-Session Memory

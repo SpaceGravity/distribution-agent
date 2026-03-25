@@ -9,7 +9,7 @@
 - Self-loops back to same node after each action
 - Good for: items that need individual attention (reply drafts)
 
-### Batch (idea path — `batchReviewTargets`, `reviewOutreach`)
+### Batch (idea path — `batchReviewTargets`)
 - Present all items at once
 - User approves all or rejects specific ones by ID
 - No index tracking — single interrupt per cycle
@@ -29,17 +29,17 @@ Sequential: routes to itself (self-loop) or to next node
 Batch: routes to next stage or back to refinement (backfill)
 ```ts
 .addNode('batchReviewTargets', batchReviewTargets, {
-  ends: ['generateOutreach', 'generateIdeaCriteria'],  // no self-loop
+  ends: ['saveMemory', 'generateIdeaCriteria'],  // no self-loop
 })
 ```
 
 ## Critical Gotcha: Every approval path must update item status
 
-When a batch review node approves (explicit `approved: true`, empty `{}` resume, or max-cycles force-proceed), **you must map pending items to `approved`**. Sending `update: {}` leaves items in `'pending'` state. Downstream nodes (`generateOutreach`, `exportCsv`) filter on `status === 'approved'` — they will find nothing and silently produce no output.
+When a batch review node approves (explicit `approved: true`, empty `{}` resume, or max-cycles force-proceed), **you must map pending items to `approved`**. Sending `update: {}` leaves items in `'pending'` state. Note: `enrichTargets` and `exportCsv` now accept both `pending` and `approved` targets (since CSV is exported before user review), but `batchReviewTargets` still needs to mark approved targets for downstream consistency with `saveMemory`.
 
 **Wrong:**
 ```ts
-return new Command({ update: {}, goto: 'generateOutreach' }); // items stay 'pending'!
+return new Command({ update: {}, goto: 'saveMemory' }); // items stay 'pending'!
 ```
 
 **Right:**
@@ -47,7 +47,7 @@ return new Command({ update: {}, goto: 'generateOutreach' }); // items stay 'pen
 const approved = state.items.map(t =>
   t.status === 'pending' ? { ...t, status: 'approved' as const } : t
 );
-return new Command({ update: { items: approved }, goto: 'generateOutreach' });
+return new Command({ update: { items: approved }, goto: 'saveMemory' });
 ```
 
 Extract a shared helper when this pattern appears in multiple exit paths to avoid drift.
