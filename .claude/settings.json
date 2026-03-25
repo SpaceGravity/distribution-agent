@@ -1,0 +1,34 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "prompt",
+        "prompt": "Before finishing: Did you complete the verification loop? (1) Ran /simplify on changed code (2) Ran tests (3) Fixed issues and re-verified (4) Confirmed a staff engineer would approve. If ANY step was skipped, complete it now. If no code was changed this turn, proceed."
+      },
+      {
+        "type": "prompt",
+        "prompt": "If you made code changes this session that affect behavior, architecture, or public APIs: run /update-docs to keep documentation in sync. Skip if changes were trivial (formatting, typos, comments only)."
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "command": "jq -r '.tool_input.file_path // empty' | grep -E '\\.(ts|js)$' | head -1 | xargs -I{} npx prettier --write {} 2>/dev/null; exit 0"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "bash -c 'input=$(jq -r .tool_input.command); if echo \"$input\" | grep -qE \"git push.*--force|git reset --hard|git push origin main|git push origin master\"; then echo \"BLOCKED: Dangerous git operation. Use feature branches and regular push.\" >&2; exit 2; fi; exit 0'"
+      }
+    ]
+  },
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)"
+    ]
+  }
+}
