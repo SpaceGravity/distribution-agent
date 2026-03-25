@@ -85,7 +85,6 @@ The resume panel shows:
 | Interrupt Node | Path | Quick Approve | Structured Options |
 |---------------|------|---------------|-------------------|
 | `batchReviewTargets` | Idea | `"approve"` | `{ "approved": true }` or `{ "rejections": [{ "id": "...", "reason": "..." }] }` |
-| `reviewOutreach` | Idea | `"approve"` | `{ "approved": true }` or `{ "edits": [...], "rejections": [...] }` |
 | `reviewReply` | Business | `"approve"` | `"edit: <text>"`, `"reject_reply: <feedback>"`, `"reject_target: <reason>"`, `"skip"` |
 | `askIdeaHelp` | Idea | N/A | Free-text guidance string |
 | `askUserHelp` | Business | N/A | Free-text guidance string or `{ "guidance": "..." }` |
@@ -104,13 +103,12 @@ The resume panel shows:
 |------|------|----------|-----------------|
 | 1 | `getInput` → `understandIdea` | ~30-60s | None (automatic) |
 | 2 | `generateIdeaCriteria` → `searchIdea` | ~60-120s | None (API calls) |
-| 3 | `extractTargets` → `enrichTargets` → `evaluateIdeaTargets` | ~60-90s | None |
-| 4 | **`batchReviewTargets`** | Paused | Enter `"approve"` and click Resume |
-| 5 | `generateOutreach` | ~60-120s | None (parallel LLM calls) |
-| 6 | **`reviewOutreach`** | Paused | Enter `"approve"` and click Resume |
-| 7 | `exportCsv` → `saveMemory` → `__end__` | ~5s | None |
+| 3 | `extractTargets` → `evaluateIdeaTargets` | ~30-60s | None |
+| 4 | `enrichTargets` → `exportCsv` | ~30-60s | None (CSV exported before review) |
+| 5 | **`batchReviewTargets`** | Paused | Enter `"approve"` or `{ "rejections": [...] }` and click Resume |
+| 6 | `saveMemory` → `__end__` | ~5s | None |
 
-**Total**: ~5-8 minutes plus review time.
+**Total**: ~3-6 minutes plus review time.
 
 ### Output Verification
 
@@ -118,7 +116,7 @@ The resume panel shows:
 ls -la output/idea-targets-*.csv
 ```
 
-CSV columns: `name`, `platform`, `url`, `category`, `why_relevant`, `follower_count`, `outreach_draft`, `outreach_type`, `source_post_url`, `source_post_title`.
+CSV columns: `name`, `platform`, `url`, `category`, `why_relevant`, `follower_count`, `status`, `source_post_url`, `source_post_title`.
 
 ## Business Path Flow (End-to-End)
 

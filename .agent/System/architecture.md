@@ -102,19 +102,19 @@ understandBusiness → generateCriteria → search → evaluate
 ### Idea Path
 
 ```
-understandIdea → generateIdeaCriteria → searchIdea → extractTargets → enrichTargets → evaluateIdeaTargets
-                        ↑                                                                      |
-                        |                                                               [satisfactory?]
-                        |                                                              /      |        \
-                        |                                                            yes   no(<5)   no(>=5)
-                        |                                                            /       |          \
-                        |                                               batchReviewTargets  refineIdeaSearch  askIdeaHelp
-                        |                                                    |                    |              |
-                        |                                              [rejections?]               |       [proceed?]
-                        |                                              /          \                |        /        \
-                        +-------(backfill)------------- yes            no         ←──────────── no     yes → batchReviewTargets
-                                                                       |
-                                                                generateOutreach → reviewOutreach → exportCsv → saveMemory → END
+understandIdea → generateIdeaCriteria → searchIdea → extractTargets → evaluateIdeaTargets
+                        ↑                                                        |
+                        |                                                 [satisfactory?]
+                        |                                                /      |        \
+                        |                                              yes   no(<5)   no(>=5)
+                        |                                              /       |          \
+                        |                                     enrichTargets  refineIdeaSearch  askIdeaHelp
+                        |                                          |              |              |
+                        |                                      exportCsv          |       [proceed?]
+                        |                                          |              |        /        \
+                        |                                  batchReviewTargets ←────── no     yes → enrichTargets
+                        |                                    /          \
+                        +-------(backfill)------ yes         no → saveMemory → END
 ```
 
 ### Node Routing Summary
@@ -136,15 +136,13 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
 | understandIdea | → generateIdeaCriteria | Static edge |
 | generateIdeaCriteria | → searchIdea | Static edge |
 | searchIdea | → extractTargets | Static edge |
-| extractTargets | → enrichTargets | Static edge |
-| enrichTargets | → evaluateIdeaTargets | Static edge |
-| evaluateIdeaTargets | → batchReviewTargets / refineIdeaSearch / askIdeaHelp | Command (dynamic) |
+| extractTargets | → evaluateIdeaTargets | Static edge |
+| evaluateIdeaTargets | → enrichTargets / refineIdeaSearch / askIdeaHelp | Command (dynamic) |
 | refineIdeaSearch | → searchIdea | Static edge |
-| askIdeaHelp | → refineIdeaSearch / batchReviewTargets | Command (dynamic) |
-| batchReviewTargets | → generateOutreach / generateIdeaCriteria | Command (dynamic) |
-| generateOutreach | → reviewOutreach | Static edge |
-| reviewOutreach | → exportCsv | Command (dynamic) |
-| exportCsv | → saveMemory | Static edge |
+| askIdeaHelp | → refineIdeaSearch / enrichTargets | Command (dynamic) |
+| enrichTargets | → exportCsv | Static edge |
+| exportCsv | → batchReviewTargets | Static edge |
+| batchReviewTargets | → saveMemory / generateIdeaCriteria | Command (dynamic) |
 | **Shared** | | |
 | saveMemory | → END | Static edge |
 
@@ -153,7 +151,7 @@ understandIdea → generateIdeaCriteria → searchIdea → extractTargets → en
 ### 1. Anthropic Claude API
 - Model: `claude-sonnet-4-6` (configurable via `config.ts`)
 - **Business path**: understandBusiness, generateCriteria, evaluate, generateReplies, reviewReply (regenerate)
-- **Idea path**: understandIdea, generateIdeaCriteria, extractTargets, evaluateIdeaTargets, generateOutreach, reviewOutreach (regenerate)
+- **Idea path**: understandIdea, generateIdeaCriteria, extractTargets, evaluateIdeaTargets
 - Structured output via `safeStructuredInvoke(ZodSchema, prompt, nodeName)` — a try-catch wrapper in `lib/llm.ts` that logs diagnostics and re-throws with descriptive errors (never bare `.withStructuredOutput().invoke()`)
 - Auth: `ANTHROPIC_API_KEY` env var
 
@@ -257,7 +255,7 @@ Persistent memory system external to LangGraph state. Written by `saveMemory` no
 
 - **Dual-mode graph**: Single graph, `mode` field routes at `getInput` to business or idea path
 - **Command routing**: Nodes with multiple destinations return `Command { update, goto }`
-- **Interrupt-based control**: 6 interrupts total (getInput, askUserHelp, reviewReply for business; askIdeaHelp, batchReviewTargets, reviewOutreach for idea)
+- **Interrupt-based control**: 5 interrupts total (getInput, askUserHelp, reviewReply for business; askIdeaHelp, batchReviewTargets for idea)
 - **Cross-session memory**: Rejection patterns, strategies, and preferences persist across sessions in `~/.distribution-agent/memory/`. Injected into prompts as `<cross_session_*>` XML blocks.
 - **Rejection feedback loop**: Rejection notes injected into criteria + evaluation prompts (both paths)
 - **Batch review with backfill**: Idea path reviews all targets at once; rejections trigger re-search to fill gaps

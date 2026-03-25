@@ -12,6 +12,7 @@ const CSV_HEADERS = [
   'category',
   'why_relevant',
   'follower_count',
+  'status',
   'source_post_url',
   'source_post_title',
 ];
@@ -19,12 +20,13 @@ const CSV_HEADERS = [
 export async function exportCsv(
   state: DistributionState
 ): Promise<Partial<DistributionState>> {
-  const approvedTargets = state.ideaTargets.filter(
-    (t) => t.status === 'approved'
+  // Export all candidate targets (non-rejected) — CSV is produced before user review
+  const candidates = state.ideaTargets.filter(
+    (t) => t.status === 'approved' || t.status === 'pending'
   );
 
-  if (approvedTargets.length === 0) {
-    console.warn('[exportCsv] No approved targets to export.');
+  if (candidates.length === 0) {
+    console.warn('[exportCsv] No candidate targets to export.');
     return {};
   }
 
@@ -34,13 +36,14 @@ export async function exportCsv(
     .slice(0, 19);
   const filePath = `${CONFIG.CSV_OUTPUT_DIR}/idea-targets-${timestamp}.csv`;
 
-  const rows = approvedTargets.map((t) => ({
+  const rows = candidates.map((t) => ({
     name: t.name,
     platform: t.platform,
     url: t.url,
     category: t.category,
     why_relevant: t.whyRelevant,
     follower_count: t.followerCount,
+    status: t.status,
     source_post_url: t.sourcePostUrl,
     source_post_title: t.sourcePostTitle,
   }));
@@ -59,7 +62,7 @@ export async function exportCsv(
   }
 
   console.log(
-    `[exportCsv] Exported ${approvedTargets.length} targets to ${filePath}`
+    `[exportCsv] Exported ${candidates.length} targets to ${filePath}`
   );
 
   return { csvOutputPath: filePath };

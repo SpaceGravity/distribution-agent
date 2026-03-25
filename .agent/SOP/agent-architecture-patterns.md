@@ -185,15 +185,15 @@ This is a simple alternative to LangGraph Store when you don't need cloud persis
 For reviewing all items at once with the ability to reject and re-search:
 
 ```
-batchReviewTargets ← (backfill) ← generateIdeaCriteria ← ...search/extract loop...
-        |
-  [rejections?]
-  /          \
-yes           no → generateOutreach
-  |
-  → remove rejected, record IdeaRejectionNote
-  → increment ideaReviewCycle
-  → goto generateIdeaCriteria (re-search to fill gaps)
+enrichTargets → exportCsv → batchReviewTargets ← (backfill) ← generateIdeaCriteria ← ...search/extract loop...
+                                    |
+                              [rejections?]
+                              /          \
+                            yes           no → saveMemory
+                              |
+                              → mark rejected, record IdeaRejectionNote
+                              → increment ideaReviewCycle
+                              → goto generateIdeaCriteria (re-search to fill gaps)
 ```
 
 Key design decisions:
